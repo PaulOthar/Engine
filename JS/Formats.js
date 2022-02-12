@@ -207,6 +207,31 @@ class Mesh extends Unit {
 
 }
 
+class Matrix {
+    m = new Array();
+
+    Rows = 0;
+    Columns = 0;
+
+    constructor(Rows,Columns) {
+        this.Rows = Rows;
+        this.Columns = Columns;
+        this.m = new Array();
+        for (let i = 0; i < Rows; i++) {
+            this.m.push(new Array());
+            for (let l = 0; l < Columns; l++) {
+                this.m[i].push(0);
+            }
+        }
+    }
+
+    printself(){
+        for(let r = 0;r<this.m.length;r++){
+            console.log(this.m[r]);
+        }
+    }
+}
+
 class VectorCalculator {
     static Add_3D(Vector_1, Vector_2) {
         let Vec = new Vector3D(0, 0, 0, 0);
@@ -256,12 +281,68 @@ class VectorCalculator {
         return Vec;
     }
 
+    static Mul_2D(Vector_1, Vector_2) {
+        let Vec = new Vector2D(0, 0, 0);
+
+        Vec.x = Vector_1.x * Vector_2.x;
+        Vec.y = Vector_1.y * Vector_2.y;
+
+        return Vec;
+    }
+
     static Div_3D(Vector_1, Vector_2) {
         let Vec = new Vector3D(0, 0, 0, 0);
 
         Vec.x = Vector_1.x / Vector_2.x;
         Vec.y = Vector_1.y / Vector_2.y;
         Vec.z = Vector_1.z / Vector_2.z;
+
+        return Vec;
+    }
+
+    static Div_2D(Vector_1, Vector_2) {
+        let Vec = new Vector2D(0, 0, 0);
+
+        Vec.x = Vector_1.x / Vector_2.x;
+        Vec.y = Vector_1.y / Vector_2.y;
+
+        return Vec;
+    }
+
+    static Add_Value_3D(Vector, Value){
+        let Vec = new Vector3D(0, 0, 0, Vector.ID);
+
+        Vec.x = Vector.x + Value;
+        Vec.y = Vector.y + Value;
+        Vec.z = Vector.z + Value;
+
+        return Vec;
+    }
+
+    static Add_Value_2D(Vector, Value){
+        let Vec = new Vector2D(0, 0, Vector.ID);
+
+        Vec.x = Vector.x + Value;
+        Vec.y = Vector.y + Value;
+
+        return Vec;
+    }
+
+    static Sub_Value_3D(Vector, Value){
+        let Vec = new Vector3D(0, 0, 0, Vector.ID);
+
+        Vec.x = Vector.x - Value;
+        Vec.y = Vector.y - Value;
+        Vec.z = Vector.z - Value;
+
+        return Vec;
+    }
+
+    static Sub_Value_2D(Vector, Value){
+        let Vec = new Vector2D(0, 0, Vector.ID);
+
+        Vec.x = Vector.x - Value;
+        Vec.y = Vector.y - Value;
 
         return Vec;
     }
@@ -281,6 +362,25 @@ class VectorCalculator {
 
         Vec.x = Vector.x * Value;
         Vec.y = Vector.y * Value;
+
+        return Vec;
+    }
+
+    static Div_Value_3D(Vector, Value) {
+        let Vec = new Vector3D(0, 0, 0, Vector.ID);
+
+        Vec.x = Vector.x / Value;
+        Vec.y = Vector.y / Value;
+        Vec.z = Vector.z / Value;
+
+        return Vec;
+    }
+
+    static Div_Value_2D(Vector, Value) {
+        let Vec = new Vector2D(0, 0, Vector.ID);
+
+        Vec.x = Vector.x / Value;
+        Vec.y = Vector.y / Value;
 
         return Vec;
     }
@@ -677,26 +777,253 @@ class TriangleCalculator {
 
         return Clipped_Triangles;
     }
-}
 
-class Matrix {
-    m = new Array();
+    static Project(Screen_Width, Screen_Heigth, Triangle, ProjectionMatrix) {
+        Triangle.V1 = MatrixCalculator.MultiplyVector(ProjectionMatrix, Triangle.V1);
+        Triangle.V2 = MatrixCalculator.MultiplyVector(ProjectionMatrix, Triangle.V2);
+        Triangle.V3 = MatrixCalculator.MultiplyVector(ProjectionMatrix, Triangle.V3);
+    
+        //Testing
+        Triangle.V1 = VectorCalculator.Div_Value_3D(Triangle.V1, Triangle.V1.w);
+        Triangle.V2 = VectorCalculator.Div_Value_3D(Triangle.V2, Triangle.V2.w);
+        Triangle.V3 = VectorCalculator.Div_Value_3D(Triangle.V3, Triangle.V3.w);
+    
+        Triangle.V1 = VectorCalculator.Mul_Value_3D(Triangle.V1, -1);
+        Triangle.V2 = VectorCalculator.Mul_Value_3D(Triangle.V2, -1);
+        Triangle.V3 = VectorCalculator.Mul_Value_3D(Triangle.V3, -1);
+    
+        let Offset = new Vector3D(0,0,0,0);
+        Offset.x = 1;
+        Offset.y = 1;
+    
+        Triangle.V1 = VectorCalculator.Add_3D(Triangle.V1, Offset);
+        Triangle.V2 = VectorCalculator.Add_3D(Triangle.V2, Offset);
+        Triangle.V3 = VectorCalculator.Add_3D(Triangle.V3, Offset);
+    
+        Triangle.V1.x *= Screen_Width * 0.5;
+        Triangle.V1.y *= Screen_Heigth * 0.5;
+    
+        Triangle.V2.x *= Screen_Width * 0.5;
+        Triangle.V2.y *= Screen_Heigth * 0.5;
+    
+        Triangle.V3.x *= Screen_Width * 0.5;
+        Triangle.V3.y *= Screen_Heigth * 0.5;
+    
+        return Triangle;
+    }
 
-    constructor() {
-        this.m = new Array();
+    static IsFacingCamera(Triangle,Camera_Position){
+        let TriNormal = VectorCalculator.Calculate_Normal_3D(Triangle.V1,Triangle.V2,Triangle.V3);
+        TriNormal = VectorCalculator.Normalize_3D(TriNormal);
 
-        //Adds 4 Rows To The Matrix, Filled With 4 Zeroes, Each
-        for (let i = 0; i < 4; i++) {
-            this.m.push(new Array());
-            for (let l = 0; l < 4; l++) {
-                this.m[i].push(0);
-            }
+        let CameraRay = VectorCalculator.Sub_3D(Triangle.V1,Camera_Position);
+
+        let DotProduct = VectorCalculator.DotProduct_3D(TriNormal,CameraRay);
+
+        if(DotProduct < 0){
+            return true;
+        }
+        else{
+            return false;
         }
     }
 }
 
 class MatrixCalculator {
+    static MultiplyVector(Matrix_4x4, Vector_3D){
+        let Output = new Vector3D(0,0,0,Vector_3D.ID);
 
+        Output.x = Vector_3D.x * Matrix_4x4.m[0][0] + Vector_3D.y * Matrix_4x4.m[1][0] + Vector_3D.z * Matrix_4x4.m[2][0] + Vector_3D.w * Matrix_4x4.m[3][0];
+        Output.y = Vector_3D.x * Matrix_4x4.m[0][1] + Vector_3D.y * Matrix_4x4.m[1][1] + Vector_3D.z * Matrix_4x4.m[2][1] + Vector_3D.w * Matrix_4x4.m[3][1];
+        Output.z = Vector_3D.x * Matrix_4x4.m[0][2] + Vector_3D.y * Matrix_4x4.m[1][2] + Vector_3D.z * Matrix_4x4.m[2][2] + Vector_3D.w * Matrix_4x4.m[3][2];
+        Output.w = Vector_3D.x * Matrix_4x4.m[0][3] + Vector_3D.y * Matrix_4x4.m[1][3] + Vector_3D.z * Matrix_4x4.m[2][3] + Vector_3D.w * Matrix_4x4.m[3][3];
+        
+        return Output;
+    }
+
+    static MakeIdentity(){
+        let Matrix_4x4 = new Matrix(4,4);
+        Matrix_4x4.m[0][0] = 1.0;
+        Matrix_4x4.m[1][1] = 1.0;
+        Matrix_4x4.m[2][2] = 1.0;
+        Matrix_4x4.m[3][3] = 1.0;
+        return Matrix_4x4;
+    }
+
+    static MakeRotationX(Angle_Rad) {
+        //Rotates The Y and Z Axis
+        let Matrix_4x4 = new Matrix(4,4);
+        Matrix_4x4.m[0][0] = 1;
+        Matrix_4x4.m[1][1] = Math.cos(Angle_Rad);
+        Matrix_4x4.m[1][2] = Math.sin(Angle_Rad);
+        Matrix_4x4.m[2][1] = -Math.sin(Angle_Rad);
+        Matrix_4x4.m[2][2] = Math.cos(Angle_Rad);
+        Matrix_4x4.m[3][3] = 1;
+        return Matrix_4x4;
+    }
+
+    static MakeRotationY(Angle_Rad) {
+        //Rotates The X and Z Axis
+        let Matrix_4x4 = new Matrix(4,4);
+        Matrix_4x4.m[0][0] = Math.cos(Angle_Rad);
+        Matrix_4x4.m[0][2] = Math.sin(Angle_Rad);
+        Matrix_4x4.m[2][0] = -Math.sin(Angle_Rad);
+        Matrix_4x4.m[1][1] = 1;
+        Matrix_4x4.m[2][2] = Math.cos(Angle_Rad);
+        Matrix_4x4.m[3][3] = 1;
+        return Matrix_4x4;
+    }
+
+    static MakeRotationZ(Angle_Rad) {
+        //Rotates The X and Y Axis
+        let Matrix_4x4 = new Matrix(4,4);
+        Matrix_4x4.m[0][0] = Math.cos(Angle_Rad);
+        Matrix_4x4.m[0][1] = Math.sin(Angle_Rad);
+        Matrix_4x4.m[1][0] = -Math.sin(Angle_Rad);
+        Matrix_4x4.m[1][1] = Math.cos(Angle_Rad);
+        Matrix_4x4.m[2][2] = 1;
+        Matrix_4x4.m[3][3] = 1;
+        return Matrix_4x4;
+    }
+
+    static MakeTranslation(x, y, z) {
+        //Moves The Vector Around, Specially usefull when Moving the Camera Around
+        let Matrix_4x4 = new Matrix(4,4);
+        Matrix_4x4.m[0][0] = 1;
+        Matrix_4x4.m[1][1] = 1;
+        Matrix_4x4.m[2][2] = 1;
+        Matrix_4x4.m[3][3] = 1;
+        Matrix_4x4.m[3][0] = x;
+        Matrix_4x4.m[3][1] = y;
+        Matrix_4x4.m[3][2] = z;
+        return Matrix_4x4;
+    }
+
+    static MakeProjection(Fov_Degrees, Aspect_Ratio, Near_Distance, Far_Distance) {
+        //This Matrix Will Translate 3D to 2D By Using Some Screen and Perseption Parameters
+        let Fov_Radians = 1 / Math.tan(Fov_Degrees * 0.5 / 180 * 3.14159);
+        let Matrix_4x4 = new Matrix(4,4);
+        Matrix_4x4.m[0][0] = Aspect_Ratio * Fov_Radians;
+        Matrix_4x4.m[1][1] = Fov_Radians;
+        Matrix_4x4.m[2][2] = Far_Distance / (Far_Distance - Near_Distance);
+        Matrix_4x4.m[3][2] = (-Far_Distance * Near_Distance) / (Far_Distance - Near_Distance);
+        Matrix_4x4.m[2][3] = 1;
+        Matrix_4x4.m[3][3] = 0;
+    
+        return Matrix_4x4;
+    }
+
+    static MultiplyMatrix4x4(Matrix_1, Matrix_2) {
+        //Matrix Multiplication With Another Matrix, Specially Usefull When Needed To Combine 2 Matrices
+    
+        let matrix = new Matrix(4,4);
+        for (let c = 0; c < 4; c++) {
+            //C For Columns
+            for (let r = 0; r < 4; r++) {
+                //R For Rows
+                let M0 = Matrix_1.m[r][0] * Matrix_2.m[0][c];
+                let M1 = Matrix_1.m[r][1] * Matrix_2.m[1][c];
+                let M2 = Matrix_1.m[r][2] * Matrix_2.m[2][c];
+                let M3 = Matrix_1.m[r][3] * Matrix_2.m[3][c];
+    
+                matrix.m[r][c] = M0 + M1 + M2 + M3;
+            }
+        }
+        return matrix;
+    }
+
+    static MultiplyMatrix(Matrix_1, Matrix_2) {
+        if(Matrix_1.Columns != Matrix_2.Rows){
+            let Temp = Matrix_1;
+            Matrix_1 = Matrix_2;
+            Matrix_2 = Temp;
+        }
+
+        let ResultingRows = Matrix_1.Rows;
+        let ResultingColumns = Matrix_2.Columns;
+        let RowsXColumns = Matrix_1.Columns;
+
+        let Result = new Matrix(ResultingRows,ResultingColumns);
+
+        for(let Row = 0;Row<ResultingRows;Row++){
+            for(let Column = 0;Column<ResultingColumns;Column++){
+                for(let X = 0;X<RowsXColumns;X++){
+                    Result.m[Row][Column] += Matrix_1.m[Row][X] * Matrix_2.m[X][Column];
+                }
+            }
+        }
+
+        return Result;
+    }
+
+    static QuickInverse4x4(InputMatrix){
+        let OutputMatrix = new Matrix(4,4);
+        OutputMatrix.m[0][0] = InputMatrix.m[0][0]; OutputMatrix.m[0][1] = InputMatrix.m[1][0]; OutputMatrix.m[0][2] = InputMatrix.m[2][0]; OutputMatrix.m[0][3] = 0.0;
+        OutputMatrix.m[1][0] = InputMatrix.m[0][1]; OutputMatrix.m[1][1] = InputMatrix.m[1][1]; OutputMatrix.m[1][2] = InputMatrix.m[2][1]; OutputMatrix.m[1][3] = 0.0;
+        OutputMatrix.m[2][0] = InputMatrix.m[0][2]; OutputMatrix.m[2][1] = InputMatrix.m[1][2]; OutputMatrix.m[2][2] = InputMatrix.m[2][2]; OutputMatrix.m[2][3] = 0.0;
+        OutputMatrix.m[3][0] = -(InputMatrix.m[3][0] * OutputMatrix.m[0][0] + InputMatrix.m[3][1] * OutputMatrix.m[1][0] + InputMatrix.m[3][2] * OutputMatrix.m[2][0]);
+        OutputMatrix.m[3][1] = -(InputMatrix.m[3][0] * OutputMatrix.m[0][1] + InputMatrix.m[3][1] * OutputMatrix.m[1][1] + InputMatrix.m[3][2] * OutputMatrix.m[2][1]);
+        OutputMatrix.m[3][2] = -(InputMatrix.m[3][0] * OutputMatrix.m[0][2] + InputMatrix.m[3][1] * OutputMatrix.m[1][2] + InputMatrix.m[3][2] * OutputMatrix.m[2][2]);
+        OutputMatrix.m[3][3] = 1.0;
+        return OutputMatrix;
+    }
+
+    static PointAt(Camera_Position,Camera_Forward,Camera_Upwards) {
+        let Forward_Direction = VectorCalculator.Sub_3D(Camera_Forward, Camera_Position);
+        Forward_Direction = VectorCalculator.Normalize_3D(Forward_Direction);
+    
+        let Forward_Correction = VectorCalculator.Mul_Value_3D(Forward_Direction, VectorCalculator.DotProduct_3D(Camera_Upwards, Forward_Direction));
+        let Up_Direction = VectorCalculator.Sub_3D(Camera_Upwards, Forward_Correction);
+        Up_Direction = VectorCalculator.Normalize_3D(Up_Direction);
+    
+        let Right_Direction = VectorCalculator.CrossProduct_3D(Up_Direction, Forward_Direction);
+    
+        let OutputMatrix = new Matrix(4,4);
+        OutputMatrix.m[0][0] = Right_Direction.x; 
+        OutputMatrix.m[0][1] = Right_Direction.y; 
+        OutputMatrix.m[0][2] = Right_Direction.z; 
+        OutputMatrix.m[0][3] = 0.0;
+    
+        OutputMatrix.m[1][0] = Up_Direction.x; 
+        OutputMatrix.m[1][1] = Up_Direction.y;
+        OutputMatrix.m[1][2] = Up_Direction.z; 
+        OutputMatrix.m[1][3] = 0.0;
+    
+        OutputMatrix.m[2][0] = Forward_Direction.x; 
+        OutputMatrix.m[2][1] = Forward_Direction.y; 
+        OutputMatrix.m[2][2] = Forward_Direction.z;
+        OutputMatrix.m[2][3] = 0.0;
+    
+        OutputMatrix.m[3][0] = Camera_Position.x; 
+        OutputMatrix.m[3][1] = Camera_Position.y; 
+        OutputMatrix.m[3][2] = Camera_Position.z; 
+        OutputMatrix.m[3][3] = 1.0;
+    
+        return OutputMatrix;
+    }
+
+    static ViewSpace(Camera_Position,XZ_Angle,YZ_Angle,WalkStep){
+        let Camera_Y_Rotation_Matrix = MatrixCalculator.MakeRotationY((XZ_Angle*Math.PI)/180);
+        let Camera_X_Rotation_Matrix = MatrixCalculator.MakeRotationX((YZ_Angle*Math.PI)/180);
+        let Camera_XY_Rotation_Matrix = MatrixCalculator.MultiplyMatrix4x4(Camera_X_Rotation_Matrix,Camera_Y_Rotation_Matrix);
+        
+        let Up = new Vector3D(0,1,0,0);
+        let Target = new Vector3D(0,0,1,0);
+        let LookDir = MatrixCalculator.MultiplyVector(Camera_XY_Rotation_Matrix,Target);
+        let Foward_LookDir = MatrixCalculator.MultiplyVector(Camera_Y_Rotation_Matrix,Target);
+
+        Target = VectorCalculator.Add_3D(Camera_Position,LookDir);
+
+        //This is Merely a Reminder to Put Somewhere else, Since it Should Be Part of The Camera Movement
+        let Forward = VectorCalculator.Mul_Value_3D(Foward_LookDir,WalkStep);
+        let Sideways = MatrixCalculator.MultiplyVector(MatrixCalculator.MakeRotationY((Math.PI)/2),Forward);
+
+        let Camera_Matrix = MatrixCalculator.PointAt(Camera_Position,Target,Up);
+
+        let ViewMatrix = MatrixCalculator.QuickInverse4x4(Camera_Matrix);
+
+        return ViewMatrix;
+    }
 }
 
 class Calculator {
@@ -704,19 +1031,3 @@ class Calculator {
     static Matrix = MatrixCalculator;
     static Triangle = TriangleCalculator;
 }
-
-let ms = new Mesh();
-
-ms.AddSpaceVector(1, 1, 0, 0);
-ms.AddSpaceVector(1, 6, 0, 1);
-ms.AddSpaceVector(6, 6, 0, 2);
-
-ms.AddTextureVector(2, 2, 0);
-ms.AddTextureVector(2, 1, 1);
-ms.AddTextureVector(1, 1, 2);
-
-ms.AddConnectionTriangle(0, 1, 2, 0, 1, 2, 0);
-
-ms.BuildReferenceTriangles();
-
-Calculator.Triangle.ClipAgainstPlane(new Vector3D(4, 2, 0, 0), new Vector3D(0, 1, 0, 0), ms.Reference_Triangles.Units[0]);

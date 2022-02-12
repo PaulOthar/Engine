@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>New And Improved Engine</title>
+    <link rel="stylesheet" href="../CSS/EngineWithUICSS.css">
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div>
+        <button id="Start/Stop">Start</button>
+    </div>
+</body>
+
+<script src="../JS/CanvasSettings.js"></script>
+
+<script src="../../ForgeJs/JS(Deprecated)/KeyboardManager.js"></script>
+
+<script src="Engine.js"></script>
+
+<script src="ImageDataManager.js"></script>
+
+<script>
+    let Functional = false;
+
+    let but = document.getElementById("Start/Stop");
+
+    function button(){
+        if(!Functional){
+            Start();
+            but.innerHTML = "Stop";
+            Functional = true;
+        }
+        else{
+            Stop();
+            but.innerHTML = "Start";
+            Functional = false;
+        }
+    }
+
+    but.onclick = button;
+
+</script>
+
+</html>

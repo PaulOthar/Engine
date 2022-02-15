@@ -152,6 +152,17 @@ class ReferenceTriangle extends Unit {
         this.T2 = t2;
         this.T3 = t3;
     }
+
+    InvertFace(){
+        let Temporary_V = this.V2;
+        let Temporary_T = this.T2;
+
+        this.V2 = this.V3;
+        this.T2 = this.T3;
+
+        this.V3 = Temporary_V;
+        this.T3 = Temporary_T;
+    }
 }
 
 class Mesh extends Unit {
@@ -213,7 +224,7 @@ class Matrix {
     Rows = 0;
     Columns = 0;
 
-    constructor(Rows,Columns) {
+    constructor(Rows, Columns) {
         this.Rows = Rows;
         this.Columns = Columns;
         this.m = new Array();
@@ -225,8 +236,8 @@ class Matrix {
         }
     }
 
-    printself(){
-        for(let r = 0;r<this.m.length;r++){
+    printself() {
+        for (let r = 0; r < this.m.length; r++) {
             console.log(this.m[r]);
         }
     }
@@ -309,7 +320,7 @@ class VectorCalculator {
         return Vec;
     }
 
-    static Add_Value_3D(Vector, Value){
+    static Add_Value_3D(Vector, Value) {
         let Vec = new Vector3D(0, 0, 0, Vector.ID);
 
         Vec.x = Vector.x + Value;
@@ -319,7 +330,7 @@ class VectorCalculator {
         return Vec;
     }
 
-    static Add_Value_2D(Vector, Value){
+    static Add_Value_2D(Vector, Value) {
         let Vec = new Vector2D(0, 0, Vector.ID);
 
         Vec.x = Vector.x + Value;
@@ -328,7 +339,7 @@ class VectorCalculator {
         return Vec;
     }
 
-    static Sub_Value_3D(Vector, Value){
+    static Sub_Value_3D(Vector, Value) {
         let Vec = new Vector3D(0, 0, 0, Vector.ID);
 
         Vec.x = Vector.x - Value;
@@ -338,7 +349,7 @@ class VectorCalculator {
         return Vec;
     }
 
-    static Sub_Value_2D(Vector, Value){
+    static Sub_Value_2D(Vector, Value) {
         let Vec = new Vector2D(0, 0, Vector.ID);
 
         Vec.x = Vector.x - Value;
@@ -769,80 +780,288 @@ class TriangleCalculator {
             return Newly_ClippedTriangles;
         }
 
-        Clipped_Triangles = ClipAgainstScreenPlane(TL_Corner, L_Normal,Clipped_Triangles);
+        Clipped_Triangles = ClipAgainstScreenPlane(TL_Corner, L_Normal, Clipped_Triangles);
 
-        Clipped_Triangles = ClipAgainstScreenPlane(BL_Corner, B_Normal,Clipped_Triangles);
+        Clipped_Triangles = ClipAgainstScreenPlane(BL_Corner, B_Normal, Clipped_Triangles);
 
-        Clipped_Triangles = ClipAgainstScreenPlane(TR_Corner, R_Normal,Clipped_Triangles);
+        Clipped_Triangles = ClipAgainstScreenPlane(TR_Corner, R_Normal, Clipped_Triangles);
 
         return Clipped_Triangles;
+    }
+
+    static SplitTriangle(Plane_Point, Plane_Normal, Triangle) {
+        //For Good Understanding
+        let Original_V_1 = Triangle.V1;
+        let Original_V_2 = Triangle.V2;
+        let Original_V_3 = Triangle.V3;
+
+        let Original_T_1 = Triangle.T1;
+        let Original_T_2 = Triangle.T2;
+        let Original_T_3 = Triangle.T3;
+
+        let Clockwise = TriangleCalculator.IsClockwise(Triangle);
+
+        let NormalizedNormal = VectorCalculator.Normalize_3D(Plane_Normal);
+
+        let DotProduct = VectorCalculator.DotProduct_3D(NormalizedNormal, Plane_Point);
+
+        let Inside_Vectors = new Array();
+        let Outside_Vectors = new Array();
+
+        let Inside_Textures = new Array();
+        let Outside_Textures = new Array();
+
+        if (VectorCalculator.Insideness_3D(NormalizedNormal, DotProduct, Original_V_1) >= 0) {
+            Inside_Vectors.push(Original_V_1);
+            Inside_Textures.push(Original_T_1);
+        }
+        else {
+            Outside_Vectors.push(Original_V_1);
+            Outside_Textures.push(Original_T_1);
+        }
+
+        if (VectorCalculator.Insideness_3D(NormalizedNormal, DotProduct, Original_V_2) >= 0) {
+            Inside_Vectors.push(Original_V_2);
+            Inside_Textures.push(Original_T_2);
+        }
+        else {
+            Outside_Vectors.push(Original_V_2);
+            Outside_Textures.push(Original_T_2);
+        }
+
+        if (VectorCalculator.Insideness_3D(NormalizedNormal, DotProduct, Original_V_3) >= 0) {
+            Inside_Vectors.push(Original_V_3);
+            Inside_Textures.push(Original_T_3);
+        }
+        else {
+            Outside_Vectors.push(Original_V_3);
+            Outside_Textures.push(Original_T_3);
+        }
+
+        let Inside_Output = new Array();
+        let Outside_Output = new Array();
+        let Output = new Array();
+
+        //For The Switch
+        let New_Point_1;
+        let New_Point_2;
+
+        let New_Texture_1;
+        let New_Texture_2;
+
+        let Intersection1;
+        let Intersection2;
+
+        switch (Inside_Vectors.length) {
+            //All The Vectors Lie inside the Plane
+            case 3:
+                Inside_Output.push(Triangle);
+                break;
+
+            //Only Two of The Vectors Lies Inside The Plane
+            case 2:
+                let Inside_Point_1 = Inside_Vectors[0];
+                let Inside_Point_2 = Inside_Vectors[1];
+                let Outside_Point = Outside_Vectors[0];
+
+                let Inside_Texture_1 = Inside_Textures[0];
+                let Inside_Texture_2 = Inside_Textures[1];
+                let Outside_Texture = Outside_Textures[0];
+
+                Intersection1 = VectorCalculator.Intersection_3D(Plane_Point, NormalizedNormal, Inside_Point_1, Outside_Point);
+                Intersection2 = VectorCalculator.Intersection_3D(Plane_Point, NormalizedNormal, Inside_Point_2, Outside_Point);
+
+                New_Point_1 = VectorCalculator.Point_In_Line_3D(Inside_Point_1, Outside_Point, Intersection1);
+                New_Point_2 = VectorCalculator.Point_In_Line_3D(Inside_Point_2, Outside_Point, Intersection2);
+
+                New_Texture_1 = VectorCalculator.Point_In_Line_2D(Inside_Texture_1, Outside_Texture, Intersection1);
+                New_Texture_2 = VectorCalculator.Point_In_Line_2D(Inside_Texture_2, Outside_Texture, Intersection2);
+
+                let InsideTriangle1 = new ReferenceTriangle(Inside_Point_1, New_Point_1, Inside_Point_2, Inside_Texture_1, New_Texture_1, Inside_Texture_2, 1);
+                let InsideTriangle2 = new ReferenceTriangle(Inside_Point_2, New_Point_1, New_Point_2, Inside_Texture_2, New_Texture_1, New_Texture_2, 1);
+                let OutsideTriangle = new ReferenceTriangle(Outside_Point, New_Point_2.getCopy(), New_Point_1.getCopy(), Outside_Texture, New_Texture_2.getCopy(), New_Texture_1.getCopy(), 2);
+
+                if(!Clockwise){
+                    InsideTriangle1.InvertFace();
+                    InsideTriangle2.InvertFace();
+                    OutsideTriangle.InvertFace();
+                }
+
+                Inside_Output.push(InsideTriangle1);
+                Inside_Output.push(InsideTriangle2);
+                Outside_Output.push(OutsideTriangle);
+                
+                break;
+
+            //Only One Vector Lie inside the Plane
+            case 1:
+                let Inside_Point = Inside_Vectors[0];
+                let Outside_Point_1 = Outside_Vectors[0];
+                let Outside_Point_2 = Outside_Vectors[1];
+
+                let Inside_Texture = Inside_Textures[0];
+                let Outside_Texture_1 = Outside_Textures[0];
+                let Outside_Texture_2 = Outside_Textures[1];
+
+                Intersection1 = VectorCalculator.Intersection_3D(Plane_Point, NormalizedNormal, Inside_Point, Outside_Point_1);
+                Intersection2 = VectorCalculator.Intersection_3D(Plane_Point, NormalizedNormal, Inside_Point, Outside_Point_2);
+
+                New_Point_1 = VectorCalculator.Point_In_Line_3D(Inside_Point, Outside_Point_1, Intersection1);
+                New_Point_2 = VectorCalculator.Point_In_Line_3D(Inside_Point, Outside_Point_2, Intersection2);
+
+                New_Texture_1 = VectorCalculator.Point_In_Line_2D(Inside_Texture, Outside_Texture_1, Intersection1);
+                New_Texture_2 = VectorCalculator.Point_In_Line_2D(Inside_Texture, Outside_Texture_2, Intersection2);
+
+                let InsideTriangle = new ReferenceTriangle(Inside_Point, New_Point_2, New_Point_1, Inside_Texture, New_Texture_2, New_Texture_1, 1);
+                let OutsideTriangle1 = new ReferenceTriangle(Outside_Point_1, New_Point_1.getCopy(), Outside_Point_2, Outside_Texture_1, New_Texture_1.getCopy(), Outside_Texture_2, 2);
+                let OutsideTriangle2 = new ReferenceTriangle(Outside_Point_2, New_Point_1.getCopy(), New_Point_2.getCopy(), Outside_Texture_2, New_Texture_1.getCopy(), New_Texture_2.getCopy(), 2);
+
+                if(!Clockwise){
+                    InsideTriangle.InvertFace();
+                    OutsideTriangle1.InvertFace();
+                    OutsideTriangle2.InvertFace();
+                }
+                
+                Inside_Output.push(InsideTriangle);
+                Outside_Output.push(OutsideTriangle1);
+                Outside_Output.push(OutsideTriangle2);
+
+                break;
+
+            //No Vectors Inside The Plane
+            case 0:
+                Outside_Output.push(Triangle);
+                break;
+        }
+
+        Output.push(Inside_Output);
+        Output.push(Outside_Output);
+
+        console.log(Inside_Output);
+        console.log(Outside_Output);
+
+        return Output;
     }
 
     static Project(Screen_Width, Screen_Heigth, Triangle, ProjectionMatrix) {
         Triangle.V1 = MatrixCalculator.MultiplyVector(ProjectionMatrix, Triangle.V1);
         Triangle.V2 = MatrixCalculator.MultiplyVector(ProjectionMatrix, Triangle.V2);
         Triangle.V3 = MatrixCalculator.MultiplyVector(ProjectionMatrix, Triangle.V3);
-    
+
         //Testing
         Triangle.V1 = VectorCalculator.Div_Value_3D(Triangle.V1, Triangle.V1.w);
         Triangle.V2 = VectorCalculator.Div_Value_3D(Triangle.V2, Triangle.V2.w);
         Triangle.V3 = VectorCalculator.Div_Value_3D(Triangle.V3, Triangle.V3.w);
-    
+
         Triangle.V1 = VectorCalculator.Mul_Value_3D(Triangle.V1, -1);
         Triangle.V2 = VectorCalculator.Mul_Value_3D(Triangle.V2, -1);
         Triangle.V3 = VectorCalculator.Mul_Value_3D(Triangle.V3, -1);
-    
-        let Offset = new Vector3D(0,0,0,0);
+
+        let Offset = new Vector3D(0, 0, 0, 0);
         Offset.x = 1;
         Offset.y = 1;
-    
+
         Triangle.V1 = VectorCalculator.Add_3D(Triangle.V1, Offset);
         Triangle.V2 = VectorCalculator.Add_3D(Triangle.V2, Offset);
         Triangle.V3 = VectorCalculator.Add_3D(Triangle.V3, Offset);
-    
+
         Triangle.V1.x *= Screen_Width * 0.5;
         Triangle.V1.y *= Screen_Heigth * 0.5;
-    
+
         Triangle.V2.x *= Screen_Width * 0.5;
         Triangle.V2.y *= Screen_Heigth * 0.5;
-    
+
         Triangle.V3.x *= Screen_Width * 0.5;
         Triangle.V3.y *= Screen_Heigth * 0.5;
-    
+
         return Triangle;
     }
 
-    static IsFacingCamera(Triangle,Camera_Position){
-        let TriNormal = VectorCalculator.Calculate_Normal_3D(Triangle.V1,Triangle.V2,Triangle.V3);
+    static IsFacingCamera(Triangle, Camera_Position) {
+        let TriNormal = VectorCalculator.Calculate_Normal_3D(Triangle.V1, Triangle.V2, Triangle.V3);
         TriNormal = VectorCalculator.Normalize_3D(TriNormal);
 
-        let CameraRay = VectorCalculator.Sub_3D(Triangle.V1,Camera_Position);
+        let CameraRay = VectorCalculator.Sub_3D(Triangle.V1, Camera_Position);
 
-        let DotProduct = VectorCalculator.DotProduct_3D(TriNormal,CameraRay);
+        let DotProduct = VectorCalculator.DotProduct_3D(TriNormal, CameraRay);
 
-        if(DotProduct < 0){
+        if (DotProduct < 0) {
             return true;
         }
-        else{
+        else {
             return false;
         }
+    }
+
+    static DeprecatedIsClockwise(Triangle) {
+        //To Understand How This Was Made, Look For 3x3 Matrix Determinant
+        let V1 = Triangle.V1;
+        let V2 = Triangle.V2;
+        let V3 = Triangle.V3;
+
+        //Adding +1, so We Wont Have 0 to Mess up our calculations
+        V1 = VectorCalculator.Add_Value_3D(V1, 1);
+        V2 = VectorCalculator.Add_Value_3D(V2, 1);
+        V3 = VectorCalculator.Add_Value_3D(V3, 1);
+
+        let Part1 = V1.x * ((V2.y * V3.z) - (V3.y * V2.z));
+        let Part2 = V1.y * ((V2.x * V3.z) - (V3.x * V2.z));
+        let Part3 = V1.z * ((V2.x * V3.y) - (V3.x * V2.y));
+
+        let Result = (Part1 - Part2 + Part3) < 0;
+
+        return Result;
+    }
+
+    static IsClockwise(Triangle) {
+        //To Understand How This Was Made, Look For 3x3 Matrix Determinant
+        let V1 = Triangle.V1;
+        let V2 = Triangle.V2;
+        let V3 = Triangle.V3;
+
+        //Adding +1, so We Wont Have 0 to Mess up our calculations
+        V1 = VectorCalculator.Add_Value_3D(V1, 1);
+        V2 = VectorCalculator.Add_Value_3D(V2, 1);
+        V3 = VectorCalculator.Add_Value_3D(V3, 1);
+
+        let Calculations = (V2.x-V1.x)*(V3.y-V1.y)-(V3.x-V1.x)*(V2.y-V1.y);
+
+        let Result = Calculations < 0;
+
+        return Result;
+    }
+}
+
+class MeshCalculator {
+    static Split(Mesh, Plane_Point, Plane_Normal) {
+        //to Be Implemented
+        /*
+        Concept: i wanted to use the clipping algorithm, and keep the discarded triangles
+
+        so, i would have multiple triangles created by the plane, on a single triangle
+
+        doing so with every triangle on the object, would result with a pile of Discarded triangles
+        and a pile of triangles inside the plane.
+
+        then, it would be just a process of making separate objects
+        */
     }
 }
 
 class MatrixCalculator {
-    static MultiplyVector(Matrix_4x4, Vector_3D){
-        let Output = new Vector3D(0,0,0,Vector_3D.ID);
+    static MultiplyVector(Matrix_4x4, Vector_3D) {
+        let Output = new Vector3D(0, 0, 0, Vector_3D.ID);
 
         Output.x = Vector_3D.x * Matrix_4x4.m[0][0] + Vector_3D.y * Matrix_4x4.m[1][0] + Vector_3D.z * Matrix_4x4.m[2][0] + Vector_3D.w * Matrix_4x4.m[3][0];
         Output.y = Vector_3D.x * Matrix_4x4.m[0][1] + Vector_3D.y * Matrix_4x4.m[1][1] + Vector_3D.z * Matrix_4x4.m[2][1] + Vector_3D.w * Matrix_4x4.m[3][1];
         Output.z = Vector_3D.x * Matrix_4x4.m[0][2] + Vector_3D.y * Matrix_4x4.m[1][2] + Vector_3D.z * Matrix_4x4.m[2][2] + Vector_3D.w * Matrix_4x4.m[3][2];
         Output.w = Vector_3D.x * Matrix_4x4.m[0][3] + Vector_3D.y * Matrix_4x4.m[1][3] + Vector_3D.z * Matrix_4x4.m[2][3] + Vector_3D.w * Matrix_4x4.m[3][3];
-        
+
         return Output;
     }
 
-    static MakeIdentity(){
-        let Matrix_4x4 = new Matrix(4,4);
+    static MakeIdentity() {
+        let Matrix_4x4 = new Matrix(4, 4);
         Matrix_4x4.m[0][0] = 1.0;
         Matrix_4x4.m[1][1] = 1.0;
         Matrix_4x4.m[2][2] = 1.0;
@@ -852,7 +1071,7 @@ class MatrixCalculator {
 
     static MakeRotationX(Angle_Rad) {
         //Rotates The Y and Z Axis
-        let Matrix_4x4 = new Matrix(4,4);
+        let Matrix_4x4 = new Matrix(4, 4);
         Matrix_4x4.m[0][0] = 1;
         Matrix_4x4.m[1][1] = Math.cos(Angle_Rad);
         Matrix_4x4.m[1][2] = Math.sin(Angle_Rad);
@@ -864,7 +1083,7 @@ class MatrixCalculator {
 
     static MakeRotationY(Angle_Rad) {
         //Rotates The X and Z Axis
-        let Matrix_4x4 = new Matrix(4,4);
+        let Matrix_4x4 = new Matrix(4, 4);
         Matrix_4x4.m[0][0] = Math.cos(Angle_Rad);
         Matrix_4x4.m[0][2] = Math.sin(Angle_Rad);
         Matrix_4x4.m[2][0] = -Math.sin(Angle_Rad);
@@ -876,7 +1095,7 @@ class MatrixCalculator {
 
     static MakeRotationZ(Angle_Rad) {
         //Rotates The X and Y Axis
-        let Matrix_4x4 = new Matrix(4,4);
+        let Matrix_4x4 = new Matrix(4, 4);
         Matrix_4x4.m[0][0] = Math.cos(Angle_Rad);
         Matrix_4x4.m[0][1] = Math.sin(Angle_Rad);
         Matrix_4x4.m[1][0] = -Math.sin(Angle_Rad);
@@ -888,7 +1107,7 @@ class MatrixCalculator {
 
     static MakeTranslation(x, y, z) {
         //Moves The Vector Around, Specially usefull when Moving the Camera Around
-        let Matrix_4x4 = new Matrix(4,4);
+        let Matrix_4x4 = new Matrix(4, 4);
         Matrix_4x4.m[0][0] = 1;
         Matrix_4x4.m[1][1] = 1;
         Matrix_4x4.m[2][2] = 1;
@@ -902,21 +1121,21 @@ class MatrixCalculator {
     static MakeProjection(Fov_Degrees, Aspect_Ratio, Near_Distance, Far_Distance) {
         //This Matrix Will Translate 3D to 2D By Using Some Screen and Perseption Parameters
         let Fov_Radians = 1 / Math.tan(Fov_Degrees * 0.5 / 180 * 3.14159);
-        let Matrix_4x4 = new Matrix(4,4);
+        let Matrix_4x4 = new Matrix(4, 4);
         Matrix_4x4.m[0][0] = Aspect_Ratio * Fov_Radians;
         Matrix_4x4.m[1][1] = Fov_Radians;
         Matrix_4x4.m[2][2] = Far_Distance / (Far_Distance - Near_Distance);
         Matrix_4x4.m[3][2] = (-Far_Distance * Near_Distance) / (Far_Distance - Near_Distance);
         Matrix_4x4.m[2][3] = 1;
         Matrix_4x4.m[3][3] = 0;
-    
+
         return Matrix_4x4;
     }
 
     static MultiplyMatrix4x4(Matrix_1, Matrix_2) {
         //Matrix Multiplication With Another Matrix, Specially Usefull When Needed To Combine 2 Matrices
-    
-        let matrix = new Matrix(4,4);
+
+        let matrix = new Matrix(4, 4);
         for (let c = 0; c < 4; c++) {
             //C For Columns
             for (let r = 0; r < 4; r++) {
@@ -925,7 +1144,7 @@ class MatrixCalculator {
                 let M1 = Matrix_1.m[r][1] * Matrix_2.m[1][c];
                 let M2 = Matrix_1.m[r][2] * Matrix_2.m[2][c];
                 let M3 = Matrix_1.m[r][3] * Matrix_2.m[3][c];
-    
+
                 matrix.m[r][c] = M0 + M1 + M2 + M3;
             }
         }
@@ -933,7 +1152,7 @@ class MatrixCalculator {
     }
 
     static MultiplyMatrix(Matrix_1, Matrix_2) {
-        if(Matrix_1.Columns != Matrix_2.Rows){
+        if (Matrix_1.Columns != Matrix_2.Rows) {
             let Temp = Matrix_1;
             Matrix_1 = Matrix_2;
             Matrix_2 = Temp;
@@ -943,11 +1162,11 @@ class MatrixCalculator {
         let ResultingColumns = Matrix_2.Columns;
         let RowsXColumns = Matrix_1.Columns;
 
-        let Result = new Matrix(ResultingRows,ResultingColumns);
+        let Result = new Matrix(ResultingRows, ResultingColumns);
 
-        for(let Row = 0;Row<ResultingRows;Row++){
-            for(let Column = 0;Column<ResultingColumns;Column++){
-                for(let X = 0;X<RowsXColumns;X++){
+        for (let Row = 0; Row < ResultingRows; Row++) {
+            for (let Column = 0; Column < ResultingColumns; Column++) {
+                for (let X = 0; X < RowsXColumns; X++) {
                     Result.m[Row][Column] += Matrix_1.m[Row][X] * Matrix_2.m[X][Column];
                 }
             }
@@ -956,8 +1175,8 @@ class MatrixCalculator {
         return Result;
     }
 
-    static QuickInverse4x4(InputMatrix){
-        let OutputMatrix = new Matrix(4,4);
+    static QuickInverse4x4(InputMatrix) {
+        let OutputMatrix = new Matrix(4, 4);
         OutputMatrix.m[0][0] = InputMatrix.m[0][0]; OutputMatrix.m[0][1] = InputMatrix.m[1][0]; OutputMatrix.m[0][2] = InputMatrix.m[2][0]; OutputMatrix.m[0][3] = 0.0;
         OutputMatrix.m[1][0] = InputMatrix.m[0][1]; OutputMatrix.m[1][1] = InputMatrix.m[1][1]; OutputMatrix.m[1][2] = InputMatrix.m[2][1]; OutputMatrix.m[1][3] = 0.0;
         OutputMatrix.m[2][0] = InputMatrix.m[0][2]; OutputMatrix.m[2][1] = InputMatrix.m[1][2]; OutputMatrix.m[2][2] = InputMatrix.m[2][2]; OutputMatrix.m[2][3] = 0.0;
@@ -968,57 +1187,57 @@ class MatrixCalculator {
         return OutputMatrix;
     }
 
-    static PointAt(Camera_Position,Camera_Forward,Camera_Upwards) {
+    static PointAt(Camera_Position, Camera_Forward, Camera_Upwards) {
         let Forward_Direction = VectorCalculator.Sub_3D(Camera_Forward, Camera_Position);
         Forward_Direction = VectorCalculator.Normalize_3D(Forward_Direction);
-    
+
         let Forward_Correction = VectorCalculator.Mul_Value_3D(Forward_Direction, VectorCalculator.DotProduct_3D(Camera_Upwards, Forward_Direction));
         let Up_Direction = VectorCalculator.Sub_3D(Camera_Upwards, Forward_Correction);
         Up_Direction = VectorCalculator.Normalize_3D(Up_Direction);
-    
+
         let Right_Direction = VectorCalculator.CrossProduct_3D(Up_Direction, Forward_Direction);
-    
-        let OutputMatrix = new Matrix(4,4);
-        OutputMatrix.m[0][0] = Right_Direction.x; 
-        OutputMatrix.m[0][1] = Right_Direction.y; 
-        OutputMatrix.m[0][2] = Right_Direction.z; 
+
+        let OutputMatrix = new Matrix(4, 4);
+        OutputMatrix.m[0][0] = Right_Direction.x;
+        OutputMatrix.m[0][1] = Right_Direction.y;
+        OutputMatrix.m[0][2] = Right_Direction.z;
         OutputMatrix.m[0][3] = 0.0;
-    
-        OutputMatrix.m[1][0] = Up_Direction.x; 
+
+        OutputMatrix.m[1][0] = Up_Direction.x;
         OutputMatrix.m[1][1] = Up_Direction.y;
-        OutputMatrix.m[1][2] = Up_Direction.z; 
+        OutputMatrix.m[1][2] = Up_Direction.z;
         OutputMatrix.m[1][3] = 0.0;
-    
-        OutputMatrix.m[2][0] = Forward_Direction.x; 
-        OutputMatrix.m[2][1] = Forward_Direction.y; 
+
+        OutputMatrix.m[2][0] = Forward_Direction.x;
+        OutputMatrix.m[2][1] = Forward_Direction.y;
         OutputMatrix.m[2][2] = Forward_Direction.z;
         OutputMatrix.m[2][3] = 0.0;
-    
-        OutputMatrix.m[3][0] = Camera_Position.x; 
-        OutputMatrix.m[3][1] = Camera_Position.y; 
-        OutputMatrix.m[3][2] = Camera_Position.z; 
+
+        OutputMatrix.m[3][0] = Camera_Position.x;
+        OutputMatrix.m[3][1] = Camera_Position.y;
+        OutputMatrix.m[3][2] = Camera_Position.z;
         OutputMatrix.m[3][3] = 1.0;
-    
+
         return OutputMatrix;
     }
 
-    static ViewSpace(Camera_Position,XZ_Angle,YZ_Angle,WalkStep){
-        let Camera_Y_Rotation_Matrix = MatrixCalculator.MakeRotationY((XZ_Angle*Math.PI)/180);
-        let Camera_X_Rotation_Matrix = MatrixCalculator.MakeRotationX((YZ_Angle*Math.PI)/180);
-        let Camera_XY_Rotation_Matrix = MatrixCalculator.MultiplyMatrix4x4(Camera_X_Rotation_Matrix,Camera_Y_Rotation_Matrix);
-        
-        let Up = new Vector3D(0,1,0,0);
-        let Target = new Vector3D(0,0,1,0);
-        let LookDir = MatrixCalculator.MultiplyVector(Camera_XY_Rotation_Matrix,Target);
-        let Foward_LookDir = MatrixCalculator.MultiplyVector(Camera_Y_Rotation_Matrix,Target);
+    static ViewSpace(Camera_Position, XZ_Angle, YZ_Angle, WalkStep) {
+        let Camera_Y_Rotation_Matrix = MatrixCalculator.MakeRotationY((XZ_Angle * Math.PI) / 180);
+        let Camera_X_Rotation_Matrix = MatrixCalculator.MakeRotationX((YZ_Angle * Math.PI) / 180);
+        let Camera_XY_Rotation_Matrix = MatrixCalculator.MultiplyMatrix4x4(Camera_X_Rotation_Matrix, Camera_Y_Rotation_Matrix);
 
-        Target = VectorCalculator.Add_3D(Camera_Position,LookDir);
+        let Up = new Vector3D(0, 1, 0, 0);
+        let Target = new Vector3D(0, 0, 1, 0);
+        let LookDir = MatrixCalculator.MultiplyVector(Camera_XY_Rotation_Matrix, Target);
+        let Foward_LookDir = MatrixCalculator.MultiplyVector(Camera_Y_Rotation_Matrix, Target);
+
+        Target = VectorCalculator.Add_3D(Camera_Position, LookDir);
 
         //This is Merely a Reminder to Put Somewhere else, Since it Should Be Part of The Camera Movement
-        let Forward = VectorCalculator.Mul_Value_3D(Foward_LookDir,WalkStep);
-        let Sideways = MatrixCalculator.MultiplyVector(MatrixCalculator.MakeRotationY((Math.PI)/2),Forward);
+        let Forward = VectorCalculator.Mul_Value_3D(Foward_LookDir, WalkStep);
+        let Sideways = MatrixCalculator.MultiplyVector(MatrixCalculator.MakeRotationY((Math.PI) / 2), Forward);
 
-        let Camera_Matrix = MatrixCalculator.PointAt(Camera_Position,Target,Up);
+        let Camera_Matrix = MatrixCalculator.PointAt(Camera_Position, Target, Up);
 
         let ViewMatrix = MatrixCalculator.QuickInverse4x4(Camera_Matrix);
 
@@ -1030,4 +1249,29 @@ class Calculator {
     static Vector = VectorCalculator;
     static Matrix = MatrixCalculator;
     static Triangle = TriangleCalculator;
+}
+
+let ref = new ReferenceTriangle(new Vector3D(10, 0, 0, 1), new Vector3D(0, 10, 0, 3), new Vector3D(-10, 0, 0, 2), new Vector2D(1, 0, 1), new Vector2D(0, 1, 3), new Vector2D(-1, 0, 2));
+
+ref.InvertFace();
+
+console.log("Is Clockwise?:", Calculator.Triangle.IsClockwise(ref));
+
+let trig = Calculator.Triangle.SplitTriangle(new Vector3D(0, 1, 0, 0), new Vector3D(1, 1, 0, 0), ref);
+
+let Triangulos = new Array();
+
+for (let i = 0; i < trig[0].length; i++) {
+    Triangulos.push(trig[0][i]);
+}
+for (let i = 0; i < trig[1].length; i++) {
+    Triangulos.push(trig[1][i]);
+}
+
+let Cam = new Vector3D(0, 0, -5, 0);
+
+console.log("Ref", Calculator.Triangle.IsFacingCamera(ref, Cam));
+
+for (let i = 0; i < Triangulos.length; i++) {
+    console.log(Triangulos[i].ID, Calculator.Triangle.IsFacingCamera(Triangulos[i], Cam));
 }

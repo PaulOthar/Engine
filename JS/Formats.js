@@ -1245,33 +1245,378 @@ class MatrixCalculator {
     }
 }
 
+class NumericCalculator{
+}
+
 class Calculator {
     static Vector = VectorCalculator;
     static Matrix = MatrixCalculator;
     static Triangle = TriangleCalculator;
+    static Numeric = NumericCalculator;
 }
 
-let ref = new ReferenceTriangle(new Vector3D(10, 0, 0, 1), new Vector3D(0, 10, 0, 3), new Vector3D(-10, 0, 0, 2), new Vector2D(1, 0, 1), new Vector2D(0, 1, 3), new Vector2D(-1, 0, 2));
+class PseudoPixel{
+    X = 0;
+    Y = 0;
 
-ref.InvertFace();
+    Red = 0;
+    Green = 0;
+    Blue = 0;
+    Alpha = 0;
 
-console.log("Is Clockwise?:", Calculator.Triangle.IsClockwise(ref));
+    constructor(x,y,r,g,b,a){
+        this.X = x;
+        this.Y = y;
 
-let trig = Calculator.Triangle.SplitTriangle(new Vector3D(0, 1, 0, 0), new Vector3D(1, 1, 0, 0), ref);
-
-let Triangulos = new Array();
-
-for (let i = 0; i < trig[0].length; i++) {
-    Triangulos.push(trig[0][i]);
+        this.Red = r;
+        this.Green = g;
+        this.Blue = b;
+        this.Alpha = a;
+    }
 }
-for (let i = 0; i < trig[1].length; i++) {
-    Triangulos.push(trig[1][i]);
+
+class ImageHandler{
+    static getPixel(ImageData,X,Y){
+        let w = ImageData.width;
+
+        let Pixel = Y*4*w + X*4;
+
+        let R = ImageData.data[Pixel];
+        let G = ImageData.data[Pixel+1];
+        let B = ImageData.data[Pixel+2];
+        let A = ImageData.data[Pixel+3];
+
+        return [R,G,B,A];
+    }
 }
 
-let Cam = new Vector3D(0, 0, -5, 0);
+class ManageableImage{
+    ImageData;
 
-console.log("Ref", Calculator.Triangle.IsFacingCamera(ref, Cam));
+    constructor(Width,Height){
+        this.ImageData = new ImageData(Width,Height);
+    }
 
-for (let i = 0; i < Triangulos.length; i++) {
-    console.log(Triangulos[i].ID, Calculator.Triangle.IsFacingCamera(Triangulos[i], Cam));
+    getPixel(X,Y){
+        let w = this.ImageData.width;
+
+        let Pixel = Y*4*w + X*4;
+
+        let R = this.ImageData.data[Pixel];
+        let G = this.ImageData.data[Pixel+1];
+        let B = this.ImageData.data[Pixel+2];
+        let A = this.ImageData.data[Pixel+3];
+
+        return [R,G,B,A];
+    }
+
+    setPixel(X,Y,R,G,B,A){
+        let w = this.ImageData.width;
+
+        let Pixel = Y*4*w + X*4;
+
+        this.ImageData.data[Pixel] = R;
+        this.ImageData.data[Pixel+1] = G;
+        this.ImageData.data[Pixel+2] = B;
+        this.ImageData.data[Pixel+3] = A;
+    }
+}
+
+class TextureHandler{
+    Screen_Width = 0;
+    Screen_Heigth = 0;
+    PixelsToDraw = new Array();
+    DepthBuffer;
+
+    constructor(Width,Heigth){
+        this.Screen_Width = Width;
+        this.Screen_Heigth = Heigth;
+        this.PixelsToDraw = new Array();
+
+        //Gambiarra
+        let M = new Matrix(Width,Heigth);
+        this.DepthBuffer = M.m;
+    }
+
+    AbsorbTriangle(V1,T1,V2,T2,V3,T3,ImageData){
+        //Fist Sort Out The Hightest and the Lowest Point
+
+        //Since The Highest Point on the Screen, has the lowest Y, will sort by this logic.
+
+        if(V2.y < V1.y){
+            let Vtemp,Ttemp;
+            //Swap V2 with V1
+            Vtemp = V2;
+            V2 = V1;
+            V1 = Vtemp;
+            //Swap T2 with T1
+            Ttemp = T2;
+            T2 = T1;
+            T1 = Ttemp;
+        }
+
+        if(V3.y < V1.y){
+            let Vtemp,Ttemp;
+            //Swap V3 with V1
+            Vtemp = V3;
+            V3 = V1;
+            V1 = Vtemp;
+            //Swap T3 with T1
+            Ttemp = T3;
+            T3 = T1;
+            T1 = Ttemp;
+        }
+
+        if(V3.y < V2.y){
+            let Vtemp,Ttemp;
+            //Swap V3 with V2
+            Vtemp = V3;
+            V3 = V2;
+            V2 = Vtemp;
+            //Swap T3 with T2
+            Ttemp = T3;
+            T3 = T2;
+            T2 = Ttemp;
+        }
+
+        console.log(V1,V2,V3);
+        
+        //Now We Get a Line From The Hightest Point, to the middle and bottom Point:
+
+        let Line1 = VectorCalculator.Sub_3D(V2,V1);
+        let T_Line1 = VectorCalculator.Sub_2D(T2,T1);
+        T_Line1.w = T2.w - T1.w;
+        //Since The Depth of a 2D Point is not subtracted, we have to do it manually:
+        
+        let Line2 = VectorCalculator.Sub_3D(V3,V1);
+        let T_Line2 = VectorCalculator.Sub_2D(T3,T1);
+        T_Line2.w = T3.w - T1.w;
+
+        //Initializing the Step Values:
+
+        //a and b representing the x moved on a very specific y position
+        let step_aX = 0;
+        let step_bX = 0;
+
+        let step_tx1 = 0;
+        let step_ty1 = 0;
+        let step_tw1 = 0;
+
+        let step_tx2 = 0;
+        let step_ty2 = 0;
+        let step_tw2 = 0;
+
+        let NotHorizontal1 = Line1.y != 0;
+        let NotHorizontal2 = Line2.y != 0;
+
+        //If the Line is not Completly Horizontal:
+        if(NotHorizontal1){
+            let Absolute = Math.abs(Line1.y);
+
+            step_aX = Line1.x / Absolute;
+            step_tx1 = T_Line1.x / Absolute;
+            step_ty1 = T_Line1.y / Absolute;
+            step_tw1 = T_Line1.w / Absolute;
+        }
+        if(NotHorizontal2){
+            let Absolute = Math.abs(Line2.y);
+
+            step_bX = Line2.x / Absolute;
+            step_tx2 = T_Line2.x / Absolute;
+            step_ty2 = T_Line2.y / Absolute;
+            step_tw2 = T_Line2.w / Absolute;
+        }
+
+        //If the Line is not Completly Horizontal:
+        if(NotHorizontal1){
+            //For Every Value between V1.y and V2.y:
+            for(let i = V1.y ; i<V2.y ; i++){
+                //A Value That Goes Between 0 and The Maximum Length of the Line
+                //Purpose: To Be Multiplied with the steps, and determin where how much to move.
+                let Current_Step = (i - V1.y);
+
+                //In This Current Y, Where will be the Point A and B?:
+                let ax = V1.x + Current_Step * step_aX;
+                let bx = V2.x + Current_Step * step_bX;
+
+                let Texture_Start_X = T1.x + Current_Step * step_tx1;
+                let Texture_Start_Y = T1.y + Current_Step * step_ty1;
+                let Texture_Start_W = T1.w + Current_Step * step_tw1;
+
+                let Texture_End_X = T1.x + Current_Step * step_tx2;
+                let Texture_End_Y = T1.y + Current_Step * step_ty2;
+                let Texture_End_W = T1.w + Current_Step * step_tw2;
+
+                //a Must Be at The left, so, if it has a highter X, we need to swap, so it has the lower X
+                if(ax > bx){
+                    let Temp;
+
+                    Temp = ax;
+                    ax = bx;
+                    bx = Temp;
+
+                    Temp = Texture_Start_X;
+                    Texture_Start_X = Texture_End_X;
+                    Texture_End_X = Temp;
+
+                    Temp = Texture_Start_Y;
+                    Texture_Start_Y = Texture_End_Y;
+                    Texture_End_Y = Temp;
+
+                    Temp = Texture_Start_W;
+                    Texture_Start_W = Texture_End_W;
+                    Texture_End_W = Temp;
+                }
+
+                let Current_Texture_X = Texture_Start_X;
+                let Current_Texture_Y = Texture_Start_Y;
+                let Current_Texture_W = Texture_Start_W;
+
+                let Texture_Step = 1 / (bx - ax);
+                let Current_Texture_Step = 0;
+
+                for(let l = ax; l < bx ; l++){
+                    let PixelTextureStep = 1 - Current_Texture_Step;
+
+                    Current_Texture_X = PixelTextureStep * Texture_Start_X + Current_Texture_Step * Texture_End_X;
+                    Current_Texture_Y = PixelTextureStep * Texture_Start_Y + Current_Texture_Step * Texture_End_Y;
+                    Current_Texture_W = PixelTextureStep * Texture_Start_W + Current_Texture_Step * Texture_End_W;
+
+                    if(this.getDepthBufferPixel(l,i) < Current_Texture_W){
+
+                        let Pixel = ImageHandler.getPixel(ImageData,Current_Texture_X / Current_Texture_W,Current_Texture_Y / Current_Texture_W);
+
+                        this.AddPixelToDraw(l,i,Pixel[0],Pixel[1],Pixel[2],Pixel[3]);
+
+                        this.setDepthBufferPixel(l,i,Current_Texture_W);
+                    }
+
+                    Current_Texture_Step += Texture_Step;
+                }
+            }
+        }
+
+        //Due To Lazyness Im Gonna Reuse Some Of The Previous Code
+
+        Line1 = VectorCalculator.Sub_3D(V3,V2);
+        T_Line1 = VectorCalculator.Sub_2D(T3,T2);
+        T_Line1.w = T3.w - T2.w;
+
+        NotHorizontal1 = Line1.y != 0;
+
+        if(NotHorizontal1){
+            let Absolute = Math.abs(Line1.y);
+
+            step_aX = Line1.x / Absolute;
+            step_tx1 = T_Line1.x / Absolute;
+            step_ty1 = T_Line1.y / Absolute;
+            step_tw1 = T_Line1.w / Absolute;
+        }
+        else{
+            step_tx1 = 0;
+            step_ty1 = 0;
+        }
+
+        if(NotHorizontal1){
+            //For Every Value between V1.y and V2.y:
+            for(let i = V2.y ; i<V3.y ; i++){
+                //A Value That Goes Between 0 and The Maximum Length of the Line
+                //Purpose: To Be Multiplied with the steps, and determin where how much to move.
+                let Current_Step = (i - V1.y);
+                let Current_Step2 = (i - V2.y);
+
+                //In This Current Y, Where will be the Point A and B?:
+                let ax = V2.x + Current_Step2 * step_aX;
+                let bx = V1.x + Current_Step * step_bX;
+
+                let Texture_Start_X = T2.x + Current_Step2 * step_tx1;
+                let Texture_Start_Y = T2.y + Current_Step2 * step_ty1;
+                let Texture_Start_W = T2.w + Current_Step2 * step_tw1;
+
+                let Texture_End_X = T1.x + Current_Step * step_tx2;
+                let Texture_End_Y = T1.y + Current_Step * step_ty2;
+                let Texture_End_W = T1.w + Current_Step * step_tw2;
+
+                //a Must Be at The left, so, if it has a highter X, we need to swap, so it has the lower X
+                if(ax > bx){
+                    let Temp;
+
+                    Temp = ax;
+                    ax = bx;
+                    bx = Temp;
+
+                    Temp = Texture_Start_X;
+                    Texture_Start_X = Texture_End_X;
+                    Texture_End_X = Temp;
+
+                    Temp = Texture_Start_Y;
+                    Texture_Start_Y = Texture_End_Y;
+                    Texture_End_Y = Temp;
+
+                    Temp = Texture_Start_W;
+                    Texture_Start_W = Texture_End_W;
+                    Texture_End_W = Temp;
+                }
+
+                let Current_Texture_X = Texture_Start_X;
+                let Current_Texture_Y = Texture_Start_Y;
+                let Current_Texture_W = Texture_Start_W;
+
+                let Texture_Step = 1 / (bx - ax);
+                let Current_Texture_Step = 0;
+
+                for(let l = ax; l < bx ; l++){
+                    let PixelTextureStep = 1 - Current_Texture_Step;
+
+                    Current_Texture_X = PixelTextureStep * Texture_Start_X + Current_Texture_Step * Texture_End_X;
+                    Current_Texture_Y = PixelTextureStep * Texture_Start_Y + Current_Texture_Step * Texture_End_Y;
+                    Current_Texture_W = PixelTextureStep * Texture_Start_W + Current_Texture_Step * Texture_End_W;
+
+                    if(this.getDepthBufferPixel(l,i) < Current_Texture_W){
+
+                        let Pixel = ImageHandler.getPixel(ImageData,Current_Texture_X / Current_Texture_W,Current_Texture_Y / Current_Texture_W);
+
+                        this.AddPixelToDraw(l,i,Pixel[0],Pixel[1],Pixel[2],Pixel[3]);
+
+                        this.setDepthBufferPixel(l,i,Current_Texture_W);
+                    }
+
+                    Current_Texture_Step += Texture_Step;
+                }
+            }
+        }
+    }
+
+    AddPixelToDraw(X,Y,R,G,B,A){
+        this.PixelsToDraw.push(new PseudoPixel(X,Y,R,G,B,A));
+    }
+
+    getDepthBufferPixel(x,y){
+        return this.DepthBuffer[x][y];
+    }
+
+    setDepthBufferPixel(x,y,Value){
+        this.DepthBuffer[x][y] = Value;
+    }
+
+    Reset(){
+        this.PixelsToDraw = new Array();
+
+        //Gambiarra
+        let M = new Matrix(this.Screen_Width,this.Screen_Heigth);
+        this.DepthBuffer = M.m;
+    }
+
+    GenerateImageData(){
+        let OutputImage = new ManageableImage(this.Screen_Width,this.Screen_Heigth);
+
+        for(let i = 0;i<this.PixelsToDraw.length;i++){
+            //P = Pixel
+            let P = this.PixelsToDraw[i];
+
+            OutputImage.setPixel(P.X,P.Y,P.Red,P.Green,P.Blue,P.Alpha);
+        }
+
+        return OutputImage;
+    }
 }

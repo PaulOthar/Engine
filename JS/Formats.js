@@ -2096,6 +2096,9 @@ class TextureHandler{
                     Texture_End_W = Temp;
                 }
 
+                ax = Math.round(ax);
+                bx = Math.round(bx);
+
                 let Current_Texture_X = Texture_Start_X;
                 let Current_Texture_Y = Texture_Start_Y;
                 let Current_Texture_W = Texture_Start_W;
@@ -2185,6 +2188,9 @@ class TextureHandler{
                     Texture_Start_W = Texture_End_W;
                     Texture_End_W = Temp;
                 }
+
+                ax = Math.round(ax);
+                bx = Math.round(bx);
 
                 let Current_Texture_X = Texture_Start_X;
                 let Current_Texture_Y = Texture_Start_Y;

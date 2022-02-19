@@ -6,6 +6,14 @@ Current_Screen.Set_LineStyle('white',1,false,false);
 
 let Engine = new EngineRunner(Current_Screen.Width,Current_Screen.Height,90,0.1,1000);
 
+Engine.Camera.Position.x = -1;
+Engine.Camera.Position.y = 2.5;
+Engine.Camera.Position.z = 3;
+
+Engine.Camera.Look_Step = 30;
+Engine.Camera.Look_Leftward();
+Engine.Camera.Calculate_LookMatrix();
+
 let Cube = new Mesh(0,0,0,5);
 
 Cube.AddSpaceVector(0,0,0,1);

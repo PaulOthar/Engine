@@ -810,8 +810,11 @@ class VectorCalculator {
     static Point_In_Line_2D(lineStart, lineEnd, Value) {
         let lineStartToEnd = VectorCalculator.Sub_2D(lineEnd, lineStart);
         let lineToIntersect = VectorCalculator.Mul_Value_2D(lineStartToEnd, Value);
+        let Output = VectorCalculator.Add_2D(lineStart, lineToIntersect);
 
-        return VectorCalculator.Add_2D(lineStart, lineToIntersect);
+        Output.w = Value * (lineEnd.w - lineStart.w) + lineStart.w;
+
+        return Output;
     }
 
     static Insideness_3D(Plane_Normal, Plane_DotProduct, Vector) {
@@ -2096,8 +2099,8 @@ class TextureHandler{
                     Texture_End_W = Temp;
                 }
 
-                ax = Math.round(ax);
-                bx = Math.round(bx);
+                ax = Math.floor(ax);
+                bx = Math.floor(bx);
 
                 let Current_Texture_X = Texture_Start_X;
                 let Current_Texture_Y = Texture_Start_Y;
@@ -2189,8 +2192,8 @@ class TextureHandler{
                     Texture_End_W = Temp;
                 }
 
-                ax = Math.round(ax);
-                bx = Math.round(bx);
+                ax = Math.floor(ax);
+                bx = Math.floor(bx);
 
                 let Current_Texture_X = Texture_Start_X;
                 let Current_Texture_Y = Texture_Start_Y;

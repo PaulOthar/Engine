@@ -173,12 +173,15 @@ class Mesh extends Unit {
     Connection_Triangles;
 
     //Pre Processing
+    Position_Translation = new Vector3D(0,0,0,0);
+
     Reference_Triangles;
 
-    Texture;
+    ImageData;
 
-    constructor(id) {
+    constructor(id,x,y,z) {
         super(id);
+        this.Position_Translation = new Vector3D(x,y,z,0);
         this.Space_Vectors = new UnitList();
         this.Texture_Vectors = new UnitList();
 
@@ -198,6 +201,15 @@ class Mesh extends Unit {
         this.Connection_Triangles.AddUnit(new ConnectionTriangle(vid1, vid2, vid3, tid1, tid2, tid3, ID));
     }
 
+    Translate(){
+        for(let i = 0;i<this.Space_Vectors.Units.length;i++){
+            let Current = VectorCalculator.Add_3D(this.Position_Translation,this.Space_Vectors.Units[i]);
+            Current.ID = this.Space_Vectors.Units[i].ID;
+
+            this.Space_Vectors.Units[i] = Current;
+        }
+    }
+
     BuildReferenceTriangles() {
         for (let i = 0; i < this.Connection_Triangles.length(); i++) {
             let CurrentConnection = this.Connection_Triangles.get(i);
@@ -214,6 +226,11 @@ class Mesh extends Unit {
 
             this.Reference_Triangles.AddUnit(RefTri);
         }
+    }
+
+    Initialize(){
+        this.Translate();
+        this.BuildReferenceTriangles();
     }
 
 }
@@ -239,6 +256,216 @@ class Matrix {
     printself() {
         for (let r = 0; r < this.m.length; r++) {
             console.log(this.m[r]);
+        }
+    }
+}
+
+class Camera{
+    Position = new Vector3D(0,0,0,0);
+
+    Sidewards = new Vector3D(1,0,0,0);
+    Upwards   = new Vector3D(0,1,0,0);
+    Fowards   = new Vector3D(0,0,1,0);
+
+    Walk_Step  = 1;
+    Walk_Speed = 1;
+
+    Angle_XZ = [0,0];
+    Angle_YZ = [0,0];
+    Angle_XY = [0,0];
+
+    Matrix_XZ;
+    Matrix_YZ;
+    Matrix_XY;
+
+    Look_Step  = 1;
+    Look_Speed = 1;
+
+    constructor(X,Y,Z){
+        this.Position = new Vector3D(X,Y,Z,0);
+
+        this.Fowards = new Vector3D(0,0,1,0);
+        this.Sidewards = new Vector3D(1,0,0,0);
+
+        this.Walk_Step = 1;
+        this.Walk_Speed = 1;
+
+        //[0] = Current ; [1] = Last 
+        this.Angle_XZ = [0,0];
+        this.Angle_YZ = [0,0];
+        this.Angle_XY = [0,0];
+
+        this.Matrix_XZ = MatrixCalculator.MakeIdentity();
+        this.Matrix_YZ = MatrixCalculator.MakeIdentity();
+        this.Matrix_XY = MatrixCalculator.MakeIdentity();
+
+        this.Look_Step = 1;
+        this.Look_Speed = 1;
+    }
+
+    Calculate_LookMatrix(){
+        //If it is not the Same Angle as Before:
+        if(this.Angle_XZ[0] != this.Angle_XZ[1]){
+            //Calculate The Matrix With the Current Angle
+            this.Matrix_XZ = MatrixCalculator.MakeRotationY((this.Angle_XZ[0] * Math.PI) / 180);
+            //Then Update the last Angle, to the Current One.
+            this.Angle_XZ[1] = this.Angle_XZ[0];
+        }
+        if(this.Angle_YZ[0] != this.Angle_YZ[1]){
+            this.Matrix_YZ = MatrixCalculator.MakeRotationY((this.Angle_YZ[0] * Math.PI) / 180);
+            this.Angle_YZ[1] = this.Angle_YZ[0];
+        }
+        if(this.Angle_XY[0] != this.Angle_XY[1]){
+            this.Matrix_XY = MatrixCalculator.MakeRotationY((this.Angle_XY[0] * Math.PI) / 180);
+            this.Angle_XY[1] = this.Angle_XY[0];
+        }
+    }
+
+    Calculate_BasicMovementDirection(){
+        let Front = new Vector3D(0,0,1,0);
+        let Side = new Vector3D(1,0,0,0);
+        this.Fowards = MatrixCalculator.MultiplyVector(Matrix_XZ,Front);
+        this.Sidewards = MatrixCalculator.MultiplyVector(Matrix_XZ,Side);
+    }
+
+    Calculate_BasicPointAt(Front,Up){
+        //Camera_Position, Camera_Forward, Camera_Upwards
+        let Forward_Direction = VectorCalculator.Sub_3D(Front, this.Position);
+        Forward_Direction = VectorCalculator.Normalize_3D(Forward_Direction);
+
+        let Forward_Correction = VectorCalculator.Mul_Value_3D(Forward_Direction, VectorCalculator.DotProduct_3D(Up, Forward_Direction));
+        let Up_Direction = VectorCalculator.Sub_3D(Up, Forward_Correction);
+        Up_Direction = VectorCalculator.Normalize_3D(Up_Direction);
+
+        let Right_Direction = VectorCalculator.CrossProduct_3D(Up_Direction, Forward_Direction);
+
+        let OutputMatrix = new Matrix(4, 4);
+        OutputMatrix.m[0][0] = Right_Direction.x;
+        OutputMatrix.m[0][1] = Right_Direction.y;
+        OutputMatrix.m[0][2] = Right_Direction.z;
+        OutputMatrix.m[0][3] = 0.0;
+
+        OutputMatrix.m[1][0] = Up_Direction.x;
+        OutputMatrix.m[1][1] = Up_Direction.y;
+        OutputMatrix.m[1][2] = Up_Direction.z;
+        OutputMatrix.m[1][3] = 0.0;
+
+        OutputMatrix.m[2][0] = Forward_Direction.x;
+        OutputMatrix.m[2][1] = Forward_Direction.y;
+        OutputMatrix.m[2][2] = Forward_Direction.z;
+        OutputMatrix.m[2][3] = 0.0;
+
+        OutputMatrix.m[3][0] = this.Position.x;
+        OutputMatrix.m[3][1] = this.Position.y;
+        OutputMatrix.m[3][2] = this.Position.z;
+        OutputMatrix.m[3][3] = 1.0;
+
+        return OutputMatrix;
+    }
+
+    Calculate_BasicViewSpace(){
+        let MasterMatrix = MatrixCalculator.MultiplyMatrix4x4(this.Matrix_XZ,this.Matrix_YZ);
+        let Front = new Vector3D(0,0,1,0);
+        let Up    = new Vector3D(0,1,0,0);
+
+        let LookDir = MatrixCalculator.MultiplyVector(MasterMatrix,Front);
+
+        Front = VectorCalculator.Add_3D(this.Position,LookDir);
+
+        let Camera_Matrix = this.Calculate_BasicPointAt(Front,Up);
+
+        let ViewMatrix = MatrixCalculator.QuickInverse4x4(Camera_Matrix);
+        
+        return ViewMatrix;
+    }
+
+    Move_Foward(){
+        let Distance = this.Walk_Step * this.Walk_Speed;
+        let ToWalk = VectorCalculator.Mul_Value_3D(this.Fowards,Distance);
+        this.Position = VectorCalculator.Add_3D(this.Position,ToWalk);
+    }
+
+    Move_Backward(){
+        let Distance = this.Walk_Step * this.Walk_Speed;
+        let ToWalk = VectorCalculator.Mul_Value_3D(this.Fowards,Distance);
+        this.Position = VectorCalculator.Sub_3D(this.Position,ToWalk);
+    }
+
+    Move_Rightward(){
+        let Distance = this.Walk_Step * this.Walk_Speed;
+        let ToWalk = VectorCalculator.Mul_Value_3D(this.Sidewards,Distance);
+        this.Position = VectorCalculator.Add_3D(this.Position,ToWalk);
+    }
+
+    Move_Leftward(){
+        let Distance = this.Walk_Step * this.Walk_Speed;
+        let ToWalk = VectorCalculator.Mul_Value_3D(this.Sidewards,Distance);
+        this.Position = VectorCalculator.Sub_3D(this.Position,ToWalk);
+    }
+
+    Move_Upward(){
+        let Distance = this.Walk_Step * this.Walk_Speed;
+        let ToWalk = VectorCalculator.Mul_Value_3D(this.Upwards,Distance);
+        this.Position = VectorCalculator.Add_3D(this.Position,ToWalk);
+    }
+
+    Move_Downward(){
+        let Distance = this.Walk_Step * this.Walk_Speed;
+        let ToWalk = VectorCalculator.Mul_Value_3D(this.Upwards,Distance);
+        this.Position = VectorCalculator.Sub_3D(this.Position,ToWalk);
+    }
+
+    Look_Rightward(){
+        let LookAngle = this.Look_Step * this.Look_Speed;
+        this.Angle_XZ[0] += LookAngle;
+
+        if(this.Angle_XZ[0] > 360){
+            this.Angle_XZ[0] = this.Angle_XZ[0] - 360;
+        }
+    }
+
+    Look_Leftward(){
+        let LookAngle = this.Look_Step * this.Look_Speed;
+        this.Angle_XZ[0] -= LookAngle;
+
+        if(this.Angle_XZ[0] < 0){
+            this.Angle_XZ[0] = this.Angle_XZ[0] + 360;
+        }
+    }
+
+    Look_Upward(){
+        let LookAngle = this.Look_Step * this.Look_Speed;
+        this.Angle_YZ[0] += LookAngle;
+
+        if(this.Angle_YZ[0] > 360){
+            this.Angle_YZ[0] = this.Angle_YZ[0] - 360;
+        }
+    }
+
+    Look_Downward(){
+        let LookAngle = this.Look_Step * this.Look_Speed;
+        this.Angle_YZ[0] -= LookAngle;
+
+        if(this.Angle_YZ[0] < 0){
+            this.Angle_YZ[0] = this.Angle_YZ[0] + 360;
+        }
+    }
+
+    Look_Clockwise(){
+        let LookAngle = this.Look_Step * this.Look_Speed;
+        this.Angle_XY[0] += LookAngle;
+
+        if(this.Angle_XY[0] > 360){
+            this.Angle_XY[0] = this.Angle_XY[0] - 360;
+        }
+    }
+
+    Look_CounterClockwise(){
+        let LookAngle = this.Look_Step * this.Look_Speed;
+        this.Angle_XY[0] -= LookAngle;
+
+        if(this.Angle_XY[0] < 0){
+            this.Angle_XY[0] = this.Angle_XY[0] + 360;
         }
     }
 }
@@ -738,8 +965,6 @@ class TriangleCalculator {
                 break;
         }
 
-        console.log(Output);
-
         return Output;
     }
 
@@ -784,6 +1009,52 @@ class TriangleCalculator {
 
         Clipped_Triangles = ClipAgainstScreenPlane(BL_Corner, B_Normal, Clipped_Triangles);
 
+        Clipped_Triangles = ClipAgainstScreenPlane(TR_Corner, R_Normal, Clipped_Triangles);
+
+        return Clipped_Triangles;
+    }
+
+    static ClipMultipleAgainstScreen(Screen_Width, Screen_Heigth, Projected_Triangles){
+        let Clipped_Triangles = new Array();
+
+        let TL_Corner = new Vector3D(0, 0, 0, 0);//0,0,0
+        let T_Normal = new Vector3D(0, 0, 0, 0);//0,1,0
+
+        let L_Normal = new Vector3D(0, 0, 0, 0);//1,0,0
+
+        let BL_Corner = new Vector3D(0, 0, 0, 0);//0,H-1,0
+        let B_Normal = new Vector3D(0, 0, 0, 0);//0,-1,0
+
+        let TR_Corner = new Vector3D(0, 0, 0, 0);//W-1,0,0
+        let R_Normal = new Vector3D(0, 0, 0, 0);//-1,0,0
+
+        T_Normal.y = 1;
+        L_Normal.x = 1;
+        BL_Corner.y = Screen_Heigth - 1;
+        B_Normal.y = -1;
+        TR_Corner.x = Screen_Width - 1;
+        R_Normal.x = -1;
+
+        function ClipAgainstScreenPlane(PlanePoint, PlaneNormal, Clipped_Tri_List) {
+            let Newly_ClippedTriangles = new Array();
+
+            for (let i = 0; i < Clipped_Tri_List.length; i++) {
+                let New_Batch = TriangleCalculator.ClipAgainstPlane(PlanePoint, PlaneNormal, Clipped_Tri_List[i]);
+
+                for (let l = 0; l < New_Batch.length; l++) {
+                    Newly_ClippedTriangles.push(New_Batch[l]);
+                }
+            }
+
+            return Newly_ClippedTriangles;
+        }
+
+        Clipped_Triangles = ClipAgainstScreenPlane(TL_Corner, T_Normal, Projected_Triangles);
+
+        Clipped_Triangles = ClipAgainstScreenPlane(TL_Corner, L_Normal, Clipped_Triangles);
+    
+        Clipped_Triangles = ClipAgainstScreenPlane(BL_Corner, B_Normal, Clipped_Triangles);
+    
         Clipped_Triangles = ClipAgainstScreenPlane(TR_Corner, R_Normal, Clipped_Triangles);
 
         return Clipped_Triangles;
@@ -937,9 +1208,6 @@ class TriangleCalculator {
         Output.push(Inside_Output);
         Output.push(Outside_Output);
 
-        console.log(Inside_Output);
-        console.log(Outside_Output);
-
         return Output;
     }
 
@@ -947,6 +1215,15 @@ class TriangleCalculator {
         Triangle.V1 = MatrixCalculator.MultiplyVector(ProjectionMatrix, Triangle.V1);
         Triangle.V2 = MatrixCalculator.MultiplyVector(ProjectionMatrix, Triangle.V2);
         Triangle.V3 = MatrixCalculator.MultiplyVector(ProjectionMatrix, Triangle.V3);
+
+        //Texture Handling:
+        Triangle.T1 = VectorCalculator.Div_Value_2D(Triangle.T1,Triangle.V1.w);
+        Triangle.T2 = VectorCalculator.Div_Value_2D(Triangle.T2,Triangle.V2.w);
+        Triangle.T3 = VectorCalculator.Div_Value_2D(Triangle.T3,Triangle.V3.w);
+
+        Triangle.T1.w = 1 / Triangle.V1.w;
+        Triangle.T2.w = 1 / Triangle.V2.w;
+        Triangle.T3.w = 1 / Triangle.V3.w;
 
         //Testing
         Triangle.V1 = VectorCalculator.Div_Value_3D(Triangle.V1, Triangle.V1.w);
@@ -1029,6 +1306,25 @@ class TriangleCalculator {
         let Result = Calculations < 0;
 
         return Result;
+    }
+
+    static ApplyViewMatrix(View_Matrix,Triangle){
+        let NewTriangle = new ReferenceTriangle();
+        NewTriangle.ID = Triangle.ID;
+
+        NewTriangle.T1 = Triangle.T1;
+        NewTriangle.T2 = Triangle.T2;
+        NewTriangle.T3 = Triangle.T3;
+
+        let NewV1 = MatrixCalculator.MultiplyVector(View_Matrix,Triangle.V1);
+        let NewV2 = MatrixCalculator.MultiplyVector(View_Matrix,Triangle.V2);
+        let NewV3 = MatrixCalculator.MultiplyVector(View_Matrix,Triangle.V3);
+
+        NewTriangle.V1 = NewV1;
+        NewTriangle.V2 = NewV2;
+        NewTriangle.V3 = NewV3;
+
+        return NewTriangle;
     }
 }
 
@@ -1149,6 +1445,16 @@ class MatrixCalculator {
             }
         }
         return matrix;
+    }
+
+    static MultiplyMultipleMatrix4x4(ArrayOfMatrix){
+        Output = ArrayOfMatrix[0];
+
+        for(let i = 1;i<ArrayOfMatrix.length;i++){
+            Output = MatrixCalculator.MultiplyMatrix4x4(Output,ArrayOfMatrix[i]);
+        }
+
+        return Output;
     }
 
     static MultiplyMatrix(Matrix_1, Matrix_2) {
@@ -1322,7 +1628,7 @@ class ManageableImage{
     }
 }
 
-class TextureHandler{
+class DeprecatedTextureHandler{
     Screen_Width = 0;
     Screen_Heigth = 0;
     PixelsToDraw = new Array();
@@ -1337,7 +1643,14 @@ class TextureHandler{
         let M = new Matrix(Width,Heigth);
         this.DepthBuffer = M.m;
     }
+    /*
+    There is a problem with this method:
+    it will add Every Single Pixel to Draw, even if it is behind another pixel.
+    Since Calculating the next pixel, wont remove the previous one.
 
+    A solution for that would be adding the pixel directly to the image, since it would replace by the position
+    Also making a image system, it would reduce the processing time, by removing the "Put the Pixel on the image" Step
+    */
     AbsorbTriangle(V1,T1,V2,T2,V3,T3,ImageData){
         //Fist Sort Out The Hightest and the Lowest Point
 
@@ -1378,8 +1691,6 @@ class TextureHandler{
             T3 = T2;
             T2 = Ttemp;
         }
-
-        console.log(V1,V2,V3);
         
         //Now We Get a Line From The Hightest Point, to the middle and bottom Point:
 
@@ -1618,5 +1929,505 @@ class TextureHandler{
         }
 
         return OutputImage;
+    }
+}
+
+class TextureHandler{
+    Screen_Width = 0;
+    Screen_Heigth = 0;
+    Current_Output;
+    DepthBuffer;
+
+    constructor(Width,Heigth){
+        this.Screen_Width = Width;
+        this.Screen_Heigth = Heigth;
+
+        this.Current_Output = new ManageableImage(Width,Heigth);
+
+        //Gambiarra
+        let M = new Matrix(Width,Heigth);
+        this.DepthBuffer = M.m;
+    }
+
+    Reset(){
+        this.Current_Output = new ManageableImage(this.Screen_Width,this.Screen_Heigth);
+
+        //Gambiarra
+        let M = new Matrix(this.Screen_Width,this.Screen_Heigth);
+        this.DepthBuffer = M.m;
+    }
+
+    getDepthBufferPixel(x,y){
+        return this.DepthBuffer[x][y];
+    }
+
+    setDepthBufferPixel(x,y,Value){
+        this.DepthBuffer[x][y] = Value;
+    }
+
+    AbsorbTriangle(V1,T1,V2,T2,V3,T3,ImageData){
+        //Fist Sort Out The Hightest and the Lowest Point
+
+        //Since The Highest Point on the Screen, has the lowest Y, will sort by this logic.
+
+        if(V2.y < V1.y){
+            let Vtemp,Ttemp;
+            //Swap V2 with V1
+            Vtemp = V2;
+            V2 = V1;
+            V1 = Vtemp;
+            //Swap T2 with T1
+            Ttemp = T2;
+            T2 = T1;
+            T1 = Ttemp;
+        }
+
+        if(V3.y < V1.y){
+            let Vtemp,Ttemp;
+            //Swap V3 with V1
+            Vtemp = V3;
+            V3 = V1;
+            V1 = Vtemp;
+            //Swap T3 with T1
+            Ttemp = T3;
+            T3 = T1;
+            T1 = Ttemp;
+        }
+
+        if(V3.y < V2.y){
+            let Vtemp,Ttemp;
+            //Swap V3 with V2
+            Vtemp = V3;
+            V3 = V2;
+            V2 = Vtemp;
+            //Swap T3 with T2
+            Ttemp = T3;
+            T3 = T2;
+            T2 = Ttemp;
+        }
+
+        //Now We Get a Line From The Hightest Point, to the middle and bottom Point:
+
+        let Line1 = VectorCalculator.Sub_3D(V2,V1);
+        let T_Line1 = VectorCalculator.Sub_2D(T2,T1);
+        T_Line1.w = T2.w - T1.w;
+        //Since The Depth of a 2D Point is not subtracted, we have to do it manually:
+        
+        let Line2 = VectorCalculator.Sub_3D(V3,V1);
+        let T_Line2 = VectorCalculator.Sub_2D(T3,T1);
+        T_Line2.w = T3.w - T1.w;
+
+        //Initializing the Step Values:
+
+        //a and b representing the x moved on a very specific y position
+        let step_aX = 0;
+        let step_bX = 0;
+
+        let step_tx1 = 0;
+        let step_ty1 = 0;
+        let step_tw1 = 0;
+
+        let step_tx2 = 0;
+        let step_ty2 = 0;
+        let step_tw2 = 0;
+
+        let NotHorizontal1 = Line1.y != 0;
+        let NotHorizontal2 = Line2.y != 0;
+
+        //If the Line is not Completly Horizontal:
+        if(NotHorizontal1){
+            console.log("Test 1 Passed");
+            let Absolute = Math.abs(Line1.y);
+
+            step_aX  =   Line1.x / Absolute;
+            step_tx1 = T_Line1.x / Absolute;
+            step_ty1 = T_Line1.y / Absolute;
+            step_tw1 = T_Line1.w / Absolute;
+        }
+
+        if(NotHorizontal2){
+            console.log("Test 2 Passed");
+            let Absolute = Math.abs(Line2.y);
+
+            step_bX = Line2.x / Absolute;
+            step_tx2 = T_Line2.x / Absolute;
+            step_ty2 = T_Line2.y / Absolute;
+            step_tw2 = T_Line2.w / Absolute;
+        }
+
+        //If the Line is not Completly Horizontal:
+        if(NotHorizontal1){
+            //For Every Value between V1.y and V2.y:
+            for(let i = V1.y ; i <= V2.y ; i++){
+                //A Value That Goes Between 0 and The Maximum Length of the Line
+                //Purpose: To Be Multiplied with the steps, and determin where how much to move.
+                let Current_Step = (i - V1.y);
+
+                //In This Current Y, Where will be the Point A and B?:
+                let ax = V1.x + Current_Step * step_aX;
+                let bx = V1.x + Current_Step * step_bX;
+
+                let Texture_Start_X = T1.x + Current_Step * step_tx1;
+                let Texture_Start_Y = T1.y + Current_Step * step_ty1;
+                let Texture_Start_W = T1.w + Current_Step * step_tw1;
+
+                let Texture_End_X = T1.x + Current_Step * step_tx2;
+                let Texture_End_Y = T1.y + Current_Step * step_ty2;
+                let Texture_End_W = T1.w + Current_Step * step_tw2;
+
+                //a Must Be at The left, so, if it has a highter X, we need to swap, so it has the lower X
+                if(ax > bx){
+                    let Temp;
+
+                    Temp = ax;
+                    ax = bx;
+                    bx = Temp;
+
+                    Temp = Texture_Start_X;
+                    Texture_Start_X = Texture_End_X;
+                    Texture_End_X = Temp;
+
+                    Temp = Texture_Start_Y;
+                    Texture_Start_Y = Texture_End_Y;
+                    Texture_End_Y = Temp;
+
+                    Temp = Texture_Start_W;
+                    Texture_Start_W = Texture_End_W;
+                    Texture_End_W = Temp;
+                }
+
+                let Current_Texture_X = Texture_Start_X;
+                let Current_Texture_Y = Texture_Start_Y;
+                let Current_Texture_W = Texture_Start_W;
+
+                let Texture_Step = 1 / (bx - ax);
+                let Current_Texture_Step = 0;
+
+                for(let l = ax; l < bx ; l++){
+                    let PixelTextureStep = 1 - Current_Texture_Step;
+
+                    Current_Texture_X = PixelTextureStep * Texture_Start_X + Current_Texture_Step * Texture_End_X;
+                    Current_Texture_Y = PixelTextureStep * Texture_Start_Y + Current_Texture_Step * Texture_End_Y;
+                    Current_Texture_W = PixelTextureStep * Texture_Start_W + Current_Texture_Step * Texture_End_W;
+
+                    if(this.getDepthBufferPixel(l,i) < Current_Texture_W){
+
+                        let Pixel = ImageHandler.getPixel(ImageData,Math.round(Current_Texture_X / Current_Texture_W),Math.round(Current_Texture_Y / Current_Texture_W));
+
+                        this.Current_Output.setPixel(l,i,Pixel[0],Pixel[1],Pixel[2],Pixel[3]);
+
+                        this.setDepthBufferPixel(l,i,Current_Texture_W);
+                    }
+
+                    Current_Texture_Step += Texture_Step;
+                }
+            }
+        }
+        //Due To Lazyness Im Gonna Reuse Some Of The Previous Code
+
+        Line1 = VectorCalculator.Sub_3D(V3,V2);
+        T_Line1 = VectorCalculator.Sub_2D(T3,T2);
+        T_Line1.w = T3.w - T2.w;
+
+        NotHorizontal1 = Line1.y != 0;
+
+        if(NotHorizontal1){
+            console.log('Test 3 Passed');
+            let Absolute = Math.abs(Line1.y);
+
+            step_aX = Line1.x / Absolute;
+            step_tx1 = T_Line1.x / Absolute;
+            step_ty1 = T_Line1.y / Absolute;
+            step_tw1 = T_Line1.w / Absolute;
+        }
+        else{
+            step_tx1 = 0;
+            step_ty1 = 0;
+        }
+
+        if(NotHorizontal1){
+            //For Every Value between V1.y and V2.y:
+            for(let i = V2.y ; i<=V3.y ; i++){
+                //A Value That Goes Between 0 and The Maximum Length of the Line
+                //Purpose: To Be Multiplied with the steps, and determin where how much to move.
+                let Current_Step = (i - V1.y);
+                let Current_Step2 = (i - V2.y);
+
+                //In This Current Y, Where will be the Point A and B?:
+                let ax = V2.x + Current_Step2 * step_aX;
+                let bx = V1.x + Current_Step * step_bX;
+
+                let Texture_Start_X = T2.x + Current_Step2 * step_tx1;
+                let Texture_Start_Y = T2.y + Current_Step2 * step_ty1;
+                let Texture_Start_W = T2.w + Current_Step2 * step_tw1;
+
+                let Texture_End_X = T1.x + Current_Step * step_tx2;
+                let Texture_End_Y = T1.y + Current_Step * step_ty2;
+                let Texture_End_W = T1.w + Current_Step * step_tw2;
+
+                //a Must Be at The left, so, if it has a highter X, we need to swap, so it has the lower X
+                if(ax > bx){
+                    let Temp;
+
+                    Temp = ax;
+                    ax = bx;
+                    bx = Temp;
+
+                    Temp = Texture_Start_X;
+                    Texture_Start_X = Texture_End_X;
+                    Texture_End_X = Temp;
+
+                    Temp = Texture_Start_Y;
+                    Texture_Start_Y = Texture_End_Y;
+                    Texture_End_Y = Temp;
+
+                    Temp = Texture_Start_W;
+                    Texture_Start_W = Texture_End_W;
+                    Texture_End_W = Temp;
+                }
+
+                let Current_Texture_X = Texture_Start_X;
+                let Current_Texture_Y = Texture_Start_Y;
+                let Current_Texture_W = Texture_Start_W;
+
+                let Texture_Step = 1 / (bx - ax);
+                let Current_Texture_Step = 0;
+
+                for(let l = ax; l < bx ; l++){
+                    let PixelTextureStep = 1 - Current_Texture_Step;
+
+                    Current_Texture_X = PixelTextureStep * Texture_Start_X + Current_Texture_Step * Texture_End_X;
+                    Current_Texture_Y = PixelTextureStep * Texture_Start_Y + Current_Texture_Step * Texture_End_Y;
+                    Current_Texture_W = PixelTextureStep * Texture_Start_W + Current_Texture_Step * Texture_End_W;
+
+                    if(this.getDepthBufferPixel(l,i) < Current_Texture_W){
+                        let Pixel = ImageHandler.getPixel(ImageData,Math.round(Current_Texture_X / Current_Texture_W),Math.round(Current_Texture_Y / Current_Texture_W));
+
+                        this.Current_Output.setPixel(l,i,Pixel[0],Pixel[1],Pixel[2],Pixel[3]);
+
+                        this.setDepthBufferPixel(l,i,Current_Texture_W);
+                    }
+
+                    Current_Texture_Step += Texture_Step;
+                }
+            }
+        }
+    }
+
+    LazyAbsorbTriangle(Triangle,ImageData){
+        this.AbsorbTriangle(Triangle.V1,Triangle.T1,Triangle.V2,Triangle.T2,Triangle.V3,Triangle.T3,ImageData);
+    }
+}
+
+class Screen{
+    Canvas;
+    Context;
+
+    Width = 0;
+    Height = 0;
+
+    constructor(Canvas_ID){
+        this.Canvas = document.getElementById(Canvas_ID);
+        this.Context = this.Canvas.getContext("2d");
+
+        this.Width = this.Canvas.width;
+        this.Height = this.Canvas.height;
+    }
+
+    Config_CanvasPixels(Width,Height){
+        this.Canvas.width = Width;
+        this.Canvas.height = Height;
+
+        this.Width = Width;
+        this.Height = Height;
+    }
+
+    Manipulate_Scale(Width_Scale,Height_Scale){
+        this.Context.scale(Width_Scale,Height_Scale);
+    }
+
+    Set_LineStyle(StrokeStyle,LineWidth,LineCap,MiterLimit){
+        if(StrokeStyle){
+            this.Context.strokeStyle = StrokeStyle;
+        }
+        if(LineWidth){
+            this.Context.lineWidth = LineWidth;
+        }
+        if(LineCap){
+            this.Context.lineCap = LineCap;
+        }
+        if(MiterLimit){
+            this.Context.miterLimit = MiterLimit;
+        }
+    }
+
+    Set_PolygonStyle(StrokeStyle,LineWidth,LineCap,MiterLimit,FillStyle){
+        this.Set_LineStyle(StrokeStyle,LineWidth,LineCap,MiterLimit);
+        if(FillStyle){
+            this.Context.fillStyle = FillStyle;
+        }
+    }
+
+    Reset_LineStyle(){
+        this.Context.strokeStyle = '#000000';
+        this.Context.lineWidth = 1;
+        this.Context.lineCap = 'Butt';
+        this.Context.miterLimit = 10;
+    }
+
+    Reset_PolygonStyle(){
+        this.Reset_LineStyle();
+        this.Context.fillStyle = '#000000';
+    }
+
+    Clear_Screen(){
+        this.Context.clearRect(0,0,this.Width,this.Height);
+    }
+
+    Draw_Line(Origin_X,Origin_Y,Destination_X,Destination_Y){
+        this.Context.beginPath();
+
+        this.Context.moveTo(Origin_X,Origin_Y);
+        this.Context.lineTo(Destination_X,Destination_Y);
+
+        this.Context.closePath();
+        this.Context.stroke();
+    }
+
+    Draw_Triangle(X1,Y1,X2,Y2,X3,Y3,Fill_Bool){
+        this.Context.beginPath();
+
+        this.Context.moveTo(X1,Y1);
+        this.Context.lineTo(X2,Y2);
+        this.Context.lineTo(X3,Y3);
+        this.Context.lineTo(X1,Y1);
+
+        if(Fill_Bool){
+            this.Context.fill();
+        }
+
+        this.Context.closePath();
+        this.Context.stroke();
+    }
+
+    Paint_Pixel(X,Y,Red,Green,Blue,Alpha){
+        let ImgData = this.Context.createImageData(1,1);
+
+        ImgData.data[0] = Red;
+        ImgData.data[1] = Green;
+        ImgData.data[2] = Blue;
+        ImgData.data[3] = Alpha;
+
+        this.Context.putImageData(ImgData,X,Y);
+    }
+
+    Paint_PixelRow(X,Y,Length,Red,Green,Blue,Alpha){
+        let ImgData = this.Context.createImageData(Length,1);
+
+        for(let i = 0;i<Length*4;i+=4){
+            ImgData.data[0+i] = Red;
+            ImgData.data[1+i] = Green;
+            ImgData.data[2+i] = Blue;
+            ImgData.data[3+i] = Alpha;
+        }
+
+        this.Context.putImageData(ImgData,X,Y);
+    }
+
+    PutImageData(ImageData){
+        this.Context.putImageData(ImageData,0,0);
+    }
+}
+
+//The Main Big Boi:
+class EngineRunner{
+    Camera = new Camera(0,0,0);
+
+    Screen_Width = 0;
+    Screen_Heigth = 0;
+
+    Mesh_List = new Array();
+
+    Texture_Handler;
+
+    Projection;
+
+    constructor(Screen_Width , Screen_Heigth , Fov_Degrees , Near_Distance, Far_Distance){
+        this.Screen_Width = Screen_Width;
+        this.Screen_Heigth = Screen_Heigth;
+
+        let Aspect_Ratio = Screen_Heigth / Screen_Width;
+
+        this.Camera = new Camera(0,0,0);
+
+        this.Projection = MatrixCalculator.MakeProjection(Fov_Degrees,Aspect_Ratio,Near_Distance,Far_Distance);
+
+        this.Texture_Handler = new TextureHandler(Screen_Width,Screen_Heigth);
+    }
+
+    Initialize_Meshs(){
+        for(let i = 0;i<this.Mesh_List.length;i++){
+            this.Mesh_List[i].Initialize();
+        }
+    }
+
+    Run_Cycle(){
+        let View_Matrix = this.Camera.Calculate_BasicViewSpace();
+
+        this.Texture_Handler.Reset();
+        //For Each Mesh Do:
+        for(let Mesh_Index = 0;Mesh_Index < this.Mesh_List.length;Mesh_Index++){
+            let Current_Mesh = this.Mesh_List[Mesh_Index];
+            
+            //For Each Triangle Inside The Mesh Do:
+            for(let Triangle_Index = 0;Triangle_Index < Current_Mesh.Reference_Triangles.Units.length;Triangle_Index++){
+                let Current_Triangle = Current_Mesh.Reference_Triangles.Units[Triangle_Index];
+
+                //If The Triangle is NOT Facing The Camera, Jump to the next one.
+                if(!TriangleCalculator.IsFacingCamera(Current_Triangle,this.Camera.Position)){
+                    continue;
+                }
+
+                //Aplly the View Matrix to Simulate Camera Seeing Stuff
+                let ViewedTriangle = TriangleCalculator.ApplyViewMatrix(View_Matrix,Current_Triangle);
+
+                //Clips The Triangle With the Imediate Front of the Camera
+                let ClippedTriangles = TriangleCalculator.ClipAgainstPlane(new Vector3D(0,0,0.1,0),new Vector3D(0,0,1,0),ViewedTriangle);
+
+                //If 0 Triangles Were Resulted On The Front Clipping, Skip to the next Triangle
+                if(ClippedTriangles.length == 0){
+                    continue;
+                }
+
+                //Project The Resulting Triangles
+                let Projected_Triangles = new Array();
+                for(let Project_Index = 0;Project_Index < ClippedTriangles.length;Project_Index++){
+                    let Current_To_Project = ClippedTriangles[Project_Index];
+                    let Projected = TriangleCalculator.Project(this.Screen_Width,this.Screen_Heigth,Current_To_Project,this.Projection);
+
+                    Projected_Triangles.push(Projected);
+                }
+
+                //Clips The Triangles With The Screen Borders
+                let ScreenClipped_Triangles = TriangleCalculator.ClipMultipleAgainstScreen(this.Screen_Width,this.Screen_Heigth,Projected_Triangles);
+
+                //Then We Put All Of The Textured Triangle On The Image
+                for(let Textured = 0;Textured < ScreenClipped_Triangles.length;Textured++){
+                    let Current_Triangle = ScreenClipped_Triangles[Textured];
+
+                    //Lazy Fix,But still... a fix
+                    Current_Triangle.V1.x = Math.floor(Current_Triangle.V1.x);
+                    Current_Triangle.V1.y = Math.floor(Current_Triangle.V1.y);
+
+                    Current_Triangle.V2.x = Math.floor(Current_Triangle.V2.x);
+                    Current_Triangle.V2.y = Math.floor(Current_Triangle.V2.y);
+
+                    Current_Triangle.V3.x = Math.floor(Current_Triangle.V3.x);
+                    Current_Triangle.V3.y = Math.floor(Current_Triangle.V3.y);
+
+                    this.Texture_Handler.LazyAbsorbTriangle(Current_Triangle,Current_Mesh.ImageData);
+                }
+            }
+        }
     }
 }

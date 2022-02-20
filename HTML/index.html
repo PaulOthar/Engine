@@ -19,4 +19,36 @@
 
 <script src="../JS/Test.js"></script>
 
+<script>
+    let Functional = false;
+
+    let but = document.getElementById("Start/Stop");
+
+    let MainLoop;
+
+    function Start() {
+        MainLoop = setInterval(Run, 1);
+    }
+
+    function Stop() {
+        clearInterval(MainLoop);
+    }
+
+    function button(){
+        if(!Functional){
+            Start();
+            but.innerHTML = "Stop";
+            Functional = true;
+        }
+        else{
+            Stop();
+            but.innerHTML = "Start";
+            Functional = false;
+        }
+    }
+
+    but.onclick = button;
+
+</script>
+
 </html>

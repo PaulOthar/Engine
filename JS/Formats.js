@@ -312,11 +312,11 @@ class Camera{
             this.Angle_XZ[1] = this.Angle_XZ[0];
         }
         if(this.Angle_YZ[0] != this.Angle_YZ[1]){
-            this.Matrix_YZ = MatrixCalculator.MakeRotationY((this.Angle_YZ[0] * Math.PI) / 180);
+            this.Matrix_YZ = MatrixCalculator.MakeRotationX((this.Angle_YZ[0] * Math.PI) / 180);
             this.Angle_YZ[1] = this.Angle_YZ[0];
         }
         if(this.Angle_XY[0] != this.Angle_XY[1]){
-            this.Matrix_XY = MatrixCalculator.MakeRotationY((this.Angle_XY[0] * Math.PI) / 180);
+            this.Matrix_XY = MatrixCalculator.MakeRotationZ((this.Angle_XY[0] * Math.PI) / 180);
             this.Angle_XY[1] = this.Angle_XY[0];
         }
     }
@@ -365,12 +365,16 @@ class Camera{
 
     Calculate_BasicViewSpace(){
         let MasterMatrix = MatrixCalculator.MultiplyMatrix4x4(this.Matrix_XZ,this.Matrix_YZ);
+        //MasterMatrix = MatrixCalculator.MultiplyMatrix4x4(MasterMatrix,this.Matrix_XY);
+
         let Front = new Vector3D(0,0,1,0);
         let Up    = new Vector3D(0,1,0,0);
 
         let LookDir = MatrixCalculator.MultiplyVector(MasterMatrix,Front);
+        //let UnderDir = MatrixCalculator.MultiplyVector(MasterMatrix,Up);
 
         Front = VectorCalculator.Add_3D(this.Position,LookDir);
+        //Up = VectorCalculator.Add_3D(this.Position,UnderDir);
 
         let Camera_Matrix = this.Calculate_BasicPointAt(Front,Up);
 
@@ -1796,6 +1800,7 @@ class DeprecatedTextureHandler{
                     Current_Texture_Y = PixelTextureStep * Texture_Start_Y + Current_Texture_Step * Texture_End_Y;
                     Current_Texture_W = PixelTextureStep * Texture_Start_W + Current_Texture_Step * Texture_End_W;
 
+                    
                     if(this.getDepthBufferPixel(l,i) < Current_Texture_W){
 
                         let Pixel = ImageHandler.getPixel(ImageData,Current_Texture_X / Current_Texture_W,Current_Texture_Y / Current_Texture_W);
@@ -1886,6 +1891,7 @@ class DeprecatedTextureHandler{
                     Current_Texture_Y = PixelTextureStep * Texture_Start_Y + Current_Texture_Step * Texture_End_Y;
                     Current_Texture_W = PixelTextureStep * Texture_Start_W + Current_Texture_Step * Texture_End_W;
 
+                    
                     if(this.getDepthBufferPixel(l,i) < Current_Texture_W){
 
                         let Pixel = ImageHandler.getPixel(ImageData,Current_Texture_X / Current_Texture_W,Current_Texture_Y / Current_Texture_W);
@@ -2039,7 +2045,6 @@ class TextureHandler{
 
         //If the Line is not Completly Horizontal:
         if(NotHorizontal1){
-            console.log("Test 1 Passed");
             let Absolute = Math.abs(Line1.y);
 
             step_aX  =   Line1.x / Absolute;
@@ -2049,7 +2054,6 @@ class TextureHandler{
         }
 
         if(NotHorizontal2){
-            console.log("Test 2 Passed");
             let Absolute = Math.abs(Line2.y);
 
             step_bX = Line2.x / Absolute;
@@ -2116,6 +2120,9 @@ class TextureHandler{
                     Current_Texture_Y = PixelTextureStep * Texture_Start_Y + Current_Texture_Step * Texture_End_Y;
                     Current_Texture_W = PixelTextureStep * Texture_Start_W + Current_Texture_Step * Texture_End_W;
 
+                    if(l < 0){
+                        l = 0;
+                    }
                     if(this.getDepthBufferPixel(l,i) < Current_Texture_W){
 
                         let Pixel = ImageHandler.getPixel(ImageData,Math.round(Current_Texture_X / Current_Texture_W),Math.round(Current_Texture_Y / Current_Texture_W));
@@ -2138,7 +2145,6 @@ class TextureHandler{
         NotHorizontal1 = Line1.y != 0;
 
         if(NotHorizontal1){
-            console.log('Test 3 Passed');
             let Absolute = Math.abs(Line1.y);
 
             step_aX = Line1.x / Absolute;
@@ -2202,6 +2208,7 @@ class TextureHandler{
                 let Texture_Step = 1 / (bx - ax);
                 let Current_Texture_Step = 0;
 
+                
                 for(let l = ax; l < bx ; l++){
                     let PixelTextureStep = 1 - Current_Texture_Step;
 
@@ -2209,6 +2216,9 @@ class TextureHandler{
                     Current_Texture_Y = PixelTextureStep * Texture_Start_Y + Current_Texture_Step * Texture_End_Y;
                     Current_Texture_W = PixelTextureStep * Texture_Start_W + Current_Texture_Step * Texture_End_W;
 
+                    if(l < 0){
+                        l = 0;
+                    }
                     if(this.getDepthBufferPixel(l,i) < Current_Texture_W){
                         let Pixel = ImageHandler.getPixel(ImageData,Math.round(Current_Texture_X / Current_Texture_W),Math.round(Current_Texture_Y / Current_Texture_W));
 
@@ -2301,6 +2311,10 @@ class Screen{
 
         this.Context.closePath();
         this.Context.stroke();
+    }
+
+    Draw_Text(Text, x, y){
+        this.Context.strokeText(Text, x, y);
     }
 
     Draw_Triangle(X1,Y1,X2,Y2,X3,Y3,Fill_Bool){

@@ -324,8 +324,8 @@ class Camera{
     Calculate_BasicMovementDirection(){
         let Front = new Vector3D(0,0,1,0);
         let Side = new Vector3D(1,0,0,0);
-        this.Fowards = MatrixCalculator.MultiplyVector(Matrix_XZ,Front);
-        this.Sidewards = MatrixCalculator.MultiplyVector(Matrix_XZ,Side);
+        this.Fowards = MatrixCalculator.MultiplyVector(this.Matrix_XZ,Front);
+        this.Sidewards = MatrixCalculator.MultiplyVector(this.Matrix_XZ,Side);
     }
 
     Calculate_BasicPointAt(Front,Up){

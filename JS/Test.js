@@ -8,8 +8,8 @@ let Engine = new EngineRunner(Current_Screen.Width,Current_Screen.Height,90,0.1,
 
 
 Engine.Camera.Position.x = 0;
-Engine.Camera.Position.y = 15;
-Engine.Camera.Position.z = -10;
+Engine.Camera.Position.y = 5;
+Engine.Camera.Position.z = 0;
 /*
 Engine.Camera.Look_Step = 180;
 Engine.Camera.Look_Leftward();
@@ -168,18 +168,23 @@ Img.onload = function(){
 }
 
 Img.src = URL;
-
+let StartingTime = Date.now();
 let Datethen = 0;
 let Difference = 0;
 let FPS = 0;
 let Lowest = 1000;
 let Hightest = 0;
+let Medium = 0;
+let Med = new Array(10).fill(0);
+let ElapsedTime = StartingTime;
 function Run(){
-
     Difference = Date.now() - Datethen;
     Datethen = Date.now();
     FPS = Math.round(1000/Difference);
-    Current_Screen.Clear_Screen();
+    Med.push(FPS);
+    Med.splice(0,1);
+    Medium = (Med[0]+Med[1]+Med[2]+Med[3]+Med[4]+Med[5]+Med[6]+Med[7]+Med[8]+Med[9])/10;
+    ElapsedTime = (Datethen - StartingTime)/1000
 
     Showoff(1/2);
     
@@ -187,22 +192,18 @@ function Run(){
     Engine.Run_Cycle();
     Current_Screen.Context.putImageData(Engine.Texture_Handler.Current_Output.ImageData,0,0);
 
-    if(FPS < Lowest && FPS > 1){
-        Lowest = FPS;
+    if(ElapsedTime % 10 < 1){
+        Lowest = Medium;
+        Hightest = Medium;
     }
-    if(FPS > Hightest && FPS < 500){
-        Hightest = FPS;
+
+    if(Medium < Lowest && Medium > 1){
+        Lowest = Medium;
     }
-    if(FPS < 40){
-        Current_Screen.Set_LineStyle('Red',1,false,false);
+    if(Medium > Hightest && Medium < 500){
+        Hightest = Medium;
     }
-    else if(FPS < 60){
-        Current_Screen.Set_LineStyle('yellow',1,false,false);
-    }
-    else{
-        Current_Screen.Set_LineStyle('Green',1,false,false);
-    }
-    Current_Screen.Draw_Text(`FPS: ${FPS} / Lowest : ${Lowest} / Hightest : ${Hightest}`,10,10);
+    Current_Screen.Draw_Text(`FPS: ${FPS} / Lowest : ${Lowest} / Hightest : ${Hightest} / Medium : ${Medium} / Elapsed : ${ElapsedTime} / Triangle Count : ${Engine.TriangleCount}`,10,10);
 }
 
 function Showoff(Distance){

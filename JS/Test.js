@@ -1,6 +1,6 @@
 let Current_Screen = new Screen('canvas');
 
-Current_Screen.Config_CanvasPixels(600,600);
+Current_Screen.Config_CanvasPixels(parseInt(prompt("Width","600")),parseInt(prompt("Height","600")));
 
 Current_Screen.Set_LineStyle('white',1,false,false);
 

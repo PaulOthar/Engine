@@ -1,5 +1,5 @@
 # Engine
-An 3D Engine Made On Javascript, Using The HTML Canvas as Screen To Draw Pixels
+An 3D Engine Made in Javascript, Using The HTML Canvas as Screen To Draw Pixels
 
 Since My Computer Is A Little Bit Messy, Barely Working, I Will Launch It Witheout Optimization and Bugfixes.
 My Apologies For Any Problem Derivated From The Current Version.
